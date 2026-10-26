@@ -1,5 +1,5 @@
 {
-  "originHash" : "91fef90812040feb5b9fbc84637b83b9e02dd2e2102a18837d775eede860ba3c",
+  "originHash" : "0cd8aef16913bd6a59d6f402d31ed03b3ec594633d7bef3719d22ef0fddabf81",
   "pins" : [
     {
       "identity" : "abseil-cpp-binary",
@@ -123,8 +123,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/rudderlabs/rudder-sdk-swift.git",
       "state" : {
-        "revision" : "01fea0d07e79336d3a02acfb0eefa22a7e194497",
-        "version" : "1.0.0"
+        "revision" : "090d735c8f930f817d534480ce2689f0b6a83c45",
+        "version" : "2.0.0"
       }
     },
     {

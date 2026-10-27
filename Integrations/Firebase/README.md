@@ -67,7 +67,7 @@ let package = Package(
         .target(
             name: "YourApp",
             dependencies: [
-                .product(name: "FirebaseIntegration", package: "integration-swift-firebase")
+                .product(name: "RudderIntegrationFirebase", package: "integration-swift-firebase")
             ]),
     ]
 )

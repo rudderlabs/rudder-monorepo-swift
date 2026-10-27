@@ -70,7 +70,7 @@ let package = Package(
         .target(
             name: "YourApp",
             dependencies: [
-                .product(name: "FirebaseIntegration", package: "integration-swift-firebase")
+                .product(name: "RudderIntegrationFirebase", package: "integration-swift-firebase")
             ]),
     ]
 )
@@ -97,12 +97,16 @@ The integration supports the following platforms:
 Initialize the RudderStack SDK and add the Firebase integration:
 
 ```swift
+import FirebaseCore
 import RudderStackAnalytics
-import FirebaseIntegration
+import RudderIntegrationFirebase
 
 class AppDelegate: UIResponder, UIApplicationDelegate {
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+
+        // Set up Firebase before you add the integration
+        FirebaseApp.configure()
 
         // Initialize the RudderStack Analytics SDK
         let config = Configuration(
@@ -122,6 +126,16 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 Replace:
 - `<WRITE_KEY>`: Your project's write key from the RudderStack dashboard
 - `<DATA_PLANE_URL>`: The URL of your RudderStack data plane
+
+## Firebase setup
+
+Your app sets up Firebase. Call `FirebaseApp.configure()` before you add the integration, as in the example above.
+
+- When Firebase is set up, the integration uses it and does not set it up again.
+- When Firebase is not set up, the integration calls `FirebaseApp.configure()` after the source config arrives. Do not
+  rely on this. It is kept only so that older apps keep working.
+- If your app sets up Firebase later, for example after user consent, add the integration after that setup. Firebase
+  raises an exception when `FirebaseApp.configure()` runs a second time, so the integration must not set it up first.
 
 ---
 

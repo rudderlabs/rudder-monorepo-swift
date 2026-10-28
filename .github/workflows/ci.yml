@@ -182,7 +182,8 @@ jobs:
       - name: Source folders to scan
         id: sources
         run: |
-          sources="$(for d in Packages Integrations; do [ -d "$d" ] && printf '%s,' "$d"; done)"
+          sources=""
+          for d in Packages Integrations; do if [ -d "$d" ]; then sources="${sources}${d},"; fi; done
           echo "list=${sources%,}" >> "$GITHUB_OUTPUT"
           [ -n "$sources" ] || echo "::notice::No package sources yet; SonarCloud has nothing to scan"
       - name: SonarCloud analysis

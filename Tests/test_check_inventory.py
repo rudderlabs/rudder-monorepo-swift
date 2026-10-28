@@ -1,0 +1,278 @@
+"""One package list and one reviewed allowlist drive checks, workflows and generated GitHub files."""
+import json
+from pathlib import Path
+import shutil
+import sys
+import tempfile
+import unittest
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+import inventory_fixture  # noqa: F401,E402  (default package list for tests)
+from check_inventory import problems, unpinned
+from common import ROOT, allowlist, inventory, load, write_json
+from generate_github import DROPDOWNS, EMPTY, OPTIONS, OTHER, generate, stale, write
+from publication_status import collect, summarize
+from release_plan import from_outputs, jobs
+from reviewed_publication import MODES
+
+FIXTURE = ROOT / "Tests" / "Fixtures" / "demo"
+SHA = "a" * 40
+
+
+class InventoryTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name) / "source"
+        shutil.copytree(FIXTURE / "release", self.root / "release")
+        # The real shared settings, without the real packages (the fixture has none in Release Please).
+        write_json(self.root / "release-please-config.json", {**load(ROOT / "release-please-config.json"), "packages": {}})
+        write(self.root)
+
+    def edit(self, name, change):
+        path = self.root / "release" / name
+        data = load(path)
+        change(data)
+        write_json(path, data)
+
+    def add_zzz(self):
+        self.edit("packages.json", lambda d: d["packages"].update(zzz={
+            "path": "Integrations/Zzz", "target": "Zzz", "component": "integration-zzz",
+            "repository": "integration-swift-zzz"}))
+        self.edit("allowlist.json", lambda d: d["repositories"].update(zzz="integration-swift-zzz"))
+
+    def test_root_passes_and_every_package_is_allowlisted(self):
+        self.assertEqual(problems(ROOT), [])
+        repositories = allowlist(ROOT)
+        # The repository starts with no packages; each import adds its allowlist and package entries together.
+        self.assertEqual(set(repositories), set(inventory(ROOT)))
+        self.assertEqual({key: p["repository"] for key, p in inventory(ROOT).items()},
+                         {key: repositories[key] for key in inventory(ROOT)})
+        form = (ROOT / ".github/ISSUE_TEMPLATE/bug_report.yml").read_text()
+        self.assertIn(f"        - {json.dumps(OTHER)}\n    validations:", form)
+        self.assertEqual((ROOT / ".github/CODEOWNERS").read_text(), "* @rudderlabs/sdk_team\n")
+
+    def test_fixture_passes(self):
+        self.assertEqual(problems(self.root), [])
+
+    def test_repository_differing_from_allowlist_fails(self):
+        self.edit("packages.json", lambda d: d["packages"]["sprig"].update(repository="rudder-integration-sprig"))
+        self.assertTrue(any(p.startswith("sprig: repository") for p in problems(self.root)))
+        with self.assertRaisesRegex(ValueError, "not allowlisted with its repository: sprig"):
+            inventory(self.root)
+
+    def test_new_package_needs_only_inventory_and_allowlist_entries(self):
+        self.add_zzz()
+        self.assertEqual(stale(self.root), [".github/ISSUE_TEMPLATE/bug_report.yml",
+                                            ".github/ISSUE_TEMPLATE/feature_request.yml"])
+        write(self.root)
+        self.assertEqual(problems(self.root), [])
+        outputs = {}
+        for path, version in [("Integrations/Zzz", "1.0.0"), ("Packages/DemoSDK", "0.2.0")]:
+            outputs.update({path + "--release_created": "true", path + "--version": version, path + "--sha": SHA})
+        plan = jobs(from_outputs(outputs, self.root))
+        self.assertEqual(plan["sdk"], {"package": "swift-sdk", "version": "0.2.0", "sha": SHA})
+        self.assertEqual(plan["integrations"], [{"package": "zzz", "version": "1.0.0", "sha": SHA}])
+        self.assertIn('"zzz"', (self.root / ".github/ISSUE_TEMPLATE/bug_report.yml").read_text())
+        self.edit("allowlist.json", lambda d: d["repositories"].pop("zzz"))
+        self.assertIn("zzz: repository 'integration-swift-zzz' differs from allowlist None",
+                      problems(self.root))
+        with self.assertRaisesRegex(ValueError, "zzz"):
+            from_outputs(outputs, self.root)
+
+    def test_title_is_an_optional_non_empty_string(self):
+        self.edit("packages.json", lambda d: d["packages"]["sprig"].update(title="RudderStack Sprig Integration"))
+        self.assertEqual(problems(self.root), [])
+        for value in ("", "  ", 3):
+            self.edit("packages.json", lambda d: d["packages"]["sprig"].update(title=value))
+            self.assertIn("sprig: title must be a non-empty string (the public Release heading)", problems(self.root))
+
+    def test_real_packages_have_release_titles(self):
+        self.assertEqual({k: inventory()[k].get("title") for k in ("swift-sdk", "sprig", "firebase")},
+                         {"swift-sdk": "RudderStack Swift SDK", "sprig": "RudderStack Sprig Integration",
+                          "firebase": "RudderStack Firebase Integration"})
+
+    def test_stale_generated_file_fails(self):
+        form = self.root / ".github/ISSUE_TEMPLATE/bug_report.yml"
+        form.write_text(form.read_text().replace('"sprig"', '"old"'))
+        (self.root / ".github/ISSUE_TEMPLATE/config.yml").unlink()
+        self.assertEqual(problems(self.root), [
+            "Stale generated file (run python3 scripts/generate_github.py): .github/ISSUE_TEMPLATE/bug_report.yml",
+            "Stale generated file (run python3 scripts/generate_github.py): .github/ISSUE_TEMPLATE/config.yml"])
+        write(self.root)
+        self.assertEqual(problems(self.root), [])
+
+    def test_workflow_package_dropdowns_follow_the_package_list(self):
+        shutil.copytree(ROOT / ".github/workflows", self.root / ".github/workflows")
+        write(self.root)
+        self.add_zzz()
+        self.assertEqual(stale(self.root)[2:], [f".github/workflows/{name}" for name in DROPDOWNS])
+        write(self.root)
+        self.assertEqual(problems(self.root), [])
+        for name in DROPDOWNS:
+            self.assertIn("          - zzz\n", (self.root / ".github/workflows" / name).read_text())
+        # A dropdown whose generated list was removed or hand-edited fails the check.
+        workflow = self.root / ".github/workflows/publish.yml"
+        workflow.write_text(workflow.read_text().replace("          - zzz\n", ""))
+        self.assertEqual(problems(self.root), [
+            "Stale generated file (run python3 scripts/generate_github.py): .github/workflows/publish.yml"])
+        workflow.write_text(workflow.read_text().replace(" # Generated by scripts/generate_github.py", ""))
+        self.assertEqual(problems(self.root), ["publish.yml: needs exactly one generated package dropdown"])
+
+    def test_every_manual_package_input_is_a_generated_dropdown(self):
+        keys = list(inventory(ROOT))
+        for path in sorted((ROOT / ".github/workflows").glob("*.yml")):
+            text = path.read_text()
+            if "workflow_dispatch:\n    inputs:\n" in text and "      package:\n" in text:
+                self.assertIn(path.name, DROPDOWNS)
+        for name in DROPDOWNS:
+            text = (ROOT / ".github/workflows" / name).read_text()
+            self.assertEqual(len(OPTIONS.findall(text)), 1, name)
+            self.assertIn("      package:\n", text.split("  workflow_call:")[0], name)
+            self.assertNotIn("release/allowlist.json", text.split("permissions:")[0], name)
+            try:
+                import yaml
+            except ImportError:
+                continue
+            package = yaml.safe_load(text)[True]["workflow_dispatch"]["inputs"]["package"]
+            self.assertEqual((package["type"], package["options"]), ("choice", keys or [EMPTY]), name)
+
+    def test_empty_inventory_generates_only_the_fallback_option(self):
+        self.edit("packages.json", lambda d: d["packages"].clear())
+        shutil.copytree(ROOT / ".github/workflows", self.root / ".github/workflows")
+        files = generate(self.root)
+        self.assertIn(f"      options:\n        - {json.dumps(OTHER)}\n", files[".github/ISSUE_TEMPLATE/bug_report.yml"])
+        # GitHub rejects a choice input without options, so each package dropdown holds a refused placeholder.
+        for name in DROPDOWNS:
+            self.assertIn(f"options: # Generated by scripts/generate_github.py\n          - {EMPTY}\n",
+                          files[f".github/workflows/{name}"])
+
+    def test_duplicate_component_or_path_fails(self):
+        self.edit("packages.json", lambda d: d["packages"]["firebase"].update(
+            component="integration-sprig", path="Integrations/Sprig"))
+        self.assertEqual(problems(self.root), ["Duplicate path: Integrations/Sprig",
+                                               "Duplicate component: integration-sprig"])
+
+    def test_invalid_allowlist_fails(self):
+        for change in (lambda d: d.update(owner="someone-else"),
+                       lambda d: d["repositories"].update(zzz=d["repositories"]["swift-sdk"]),
+                       lambda d: d["repositories"].update({"Bad Key": "repo"})):
+            with self.subTest():
+                original = load(self.root / "release/allowlist.json")
+                self.edit("allowlist.json", change)
+                self.assertEqual(len(problems(self.root)), 1)
+                write_json(self.root / "release/allowlist.json", original)
+
+    def test_release_please_entries_need_a_matching_package(self):
+        config = self.root / "release-please-config.json"
+        data = load(config)
+        data["packages"] = {"Integrations/Sprig": {"component": "integration-sprig"}}
+        write_json(config, data)
+        self.assertEqual(problems(self.root), [])
+        for entry in ({"Integrations/Sprig": {"component": "sprig"}}, {"Integrations/Gone": {"component": "gone"}}):
+            data["packages"] = entry
+            write_json(config, data)
+            self.assertEqual(len(problems(self.root)), 1)
+
+    def test_actions_must_be_pinned_to_full_commit_shas(self):
+        workflow = self.root / ".github/workflows/x.yml"
+        workflow.parent.mkdir(parents=True)
+        workflow.write_text("jobs:\n  a:\n    uses: ./.github/workflows/publish.yml\n  b:\n    steps:\n"
+                            f"      - uses: actions/checkout@{SHA} # v4\n"
+                            "      - uses: actions/checkout@v4\n"
+                            f"      - name: x\n        uses: 'actions/cache@{SHA[:39]}'\n")
+        self.assertEqual(unpinned(self.root), [".github/workflows/x.yml: actions/checkout@v4",
+                                               f".github/workflows/x.yml: actions/cache@{SHA[:39]}"])
+        self.assertEqual(len(problems(self.root)), 2)
+        action = self.root / ".github/actions/scan/action.yml"
+        action.parent.mkdir(parents=True)
+        action.write_text("runs:\n  using: composite\n  steps:\n    - uses: actions/cache@v5\n")
+        self.assertIn(".github/actions/scan/action.yml: actions/cache@v5", unpinned(self.root))
+        self.assertEqual(unpinned(ROOT), [])
+
+
+class ReleaseConfigTests(unittest.TestCase):
+    def test_changelog_sections_match_the_sdk_release_types(self):
+        sections = {s["type"]: s["hidden"] for s in load(ROOT / "release-please-config.json")["changelog-sections"]}
+        self.assertEqual(sections, {**dict.fromkeys(["feat", "fix", "perf", "refactor", "chore"], False),
+                                    **dict.fromkeys(["docs", "test", "ci", "style", "build", "revert"], True)})
+
+    def test_each_package_gets_its_own_release_pr(self):
+        # `chore(release): swift-sdk 1.4.2` on `release-please--branches--main--components--sdk`, like rudder-sdk-swift.
+        # Release Please adds the space before `${component}` itself and parses merged titles with the same pattern.
+        config = load(ROOT / "release-please-config.json")
+        self.assertIs(config["separate-pull-requests"], True)
+        self.assertEqual(config["pull-request-title-pattern"], "chore(release):${component} ${version}")
+        self.assertNotIn("group-pull-request-title-pattern", config)
+
+    def test_a_package_released_alone_plans_only_that_package(self):
+        """Action outputs (release-please-action v4 `outputReleases`) after merging one package's release PR."""
+        packages = inventory(inventory_fixture.ROOT)
+
+        def released(key, version):
+            path, component = packages[key]["path"], packages[key]["component"]
+            return {"releases_created": "true", "paths_released": json.dumps([path]), "prs_created": "false",
+                    path + "--release_created": "true", path + "--version": version, path + "--sha": SHA,
+                    path + "--tag_name": f"{component}-{version}", path + "--major": version.split(".")[0],
+                    path + "--path": path, path + "--body": "### Bug Fixes\n\n* fix"}
+
+        sprig = jobs(from_outputs(released("sprig", "1.0.2"), inventory_fixture.ROOT))
+        self.assertEqual(sprig["plan"], [{"package": "sprig", "version": "1.0.2", "sha": SHA}])
+        # release-please.yml skips `publish (swift-sdk)` on 'null' and still runs the integrations after a skipped SDK job.
+        self.assertEqual(json.dumps(sprig["sdk"]), "null")
+        self.assertEqual(sprig["integrations"], [{"package": "sprig", "version": "1.0.2", "sha": SHA}])
+        sdk = jobs(from_outputs(released("swift-sdk", "1.4.2"), inventory_fixture.ROOT))
+        self.assertEqual((sdk["sdk"], sdk["integrations"]), ({"package": "swift-sdk", "version": "1.4.2", "sha": SHA}, []))
+        self.assertEqual(jobs(from_outputs({"releases_created": "false", "paths_released": "[]"}, inventory_fixture.ROOT))["plan"], [])
+
+    def test_release_workflow_is_data_driven(self):
+        release = (ROOT / ".github/workflows/release-please.yml").read_text()
+        publish = (ROOT / ".github/workflows/publish.yml").read_text()
+        # The publish dropdown is the one generated list of package keys.
+        for text in (release, OPTIONS.sub("", publish)):
+            self.assertNotIn("sprig", text)
+            self.assertNotIn("firebase", text)
+        self.assertEqual(release.count("vars.RELEASES_ENABLED == 'true'"), 1)
+        for line in ["    name: publish (swift-sdk)\n", "    name: publish (${{ matrix.package }})\n",
+                     "        include: ${{ fromJSON(needs.intent.outputs.integrations) }}\n",
+                     "    needs: [intent, sdk]\n", "    needs: [intent, sdk, integrations]\n",
+                     "        run: python3 scripts/release_plan.py from-outputs\n"]:
+            self.assertIn(line, release)
+        self.assertIn("(needs.sdk.result == 'success' || needs.sdk.result == 'skipped')", release)
+        self.assertIn("      group: publication-${{ inputs.package }}\n", publish)
+        self.assertIn("from common import allowlist, inventory", publish)
+        try:
+            import yaml
+        except ImportError:
+            return
+        jobs_ = yaml.safe_load(release)["jobs"]
+        self.assertEqual(jobs_["integrations"]["uses"], "./.github/workflows/publish.yml")
+        self.assertEqual(jobs_["sdk"]["with"]["package"], "swift-sdk")
+        triggers = yaml.safe_load(publish)[True]
+        self.assertEqual(triggers["workflow_dispatch"]["inputs"]["package"]["type"], "choice")
+        self.assertEqual(triggers["workflow_dispatch"]["inputs"]["mode"]["options"], list(MODES))
+        self.assertEqual(triggers["workflow_call"]["inputs"]["package"]["type"], "string")
+
+
+class PublicationStatusArtifactTests(unittest.TestCase):
+    def test_each_matrix_leg_reports_through_its_own_artifact(self):
+        plan = [{"package": "swift-sdk", "version": "1.0.0", "sha": SHA}, {"package": "zzz", "version": "1.0.1", "sha": SHA},
+                {"package": "late", "version": "1.0.0", "sha": SHA}]
+        published = {"status": "published", "package": "swift-sdk", "version": "1.0.0", "tag": "1.0.0",
+                     "sourceCommit": SHA, "publicationCommit": "b" * 40}
+        with tempfile.TemporaryDirectory() as temp:
+            for name, result, job in [("publication-swift-sdk-1.0.0", published, "success"),
+                                      ("publication-zzz-1.0.1", {**published, "package": "zzz", "version": "1.0.1",
+                                                                 "tag": "1.0.1"}, "failure")]:
+                write_json(Path(temp) / name / "publication-result.json", result)
+                write_json(Path(temp) / name / "publication-job.json", {"result": job})
+            found = collect(plan, lambda name: Path(temp) / name if (Path(temp) / name).exists() else None)
+        result = summarize(plan, found)
+        self.assertEqual({k: v["status"] for k, v in result["packages"].items()},
+                         {"swift-sdk": "published", "zzz": "incomplete", "late": "incomplete"})
+        self.assertEqual(result["packages"]["late"]["jobResult"], "missing")
+        self.assertEqual(result["status"], "incomplete")
+
+
+if __name__ == "__main__":
+    unittest.main()

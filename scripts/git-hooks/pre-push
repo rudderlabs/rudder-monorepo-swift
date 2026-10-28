@@ -1,0 +1,168 @@
+#!/bin/bash
+
+# ──────────────────────────────────────────────────────────────
+# pre-push hook (ported from rudder-sdk-swift)
+# Validates branch name, then tests only the packages the branch
+# changed, using PR CI's plan without dependents
+# (`scripts/ci_plan.py --base origin/main --no-dependents`):
+# `make test PKG=<key>` for each changed package and `make test-python`
+# when scripts, release data or other policy paths change. CI also tests
+# their dependents (an SDK change tests every integration there).
+# Docs-only pushes run no tests. Without a local origin/main it runs the
+# full `make test`. The hook never fetches: run `git fetch origin` to
+# refresh origin/main.
+#
+# `SKIP_PRE_PUSH_TESTS=1 git push` skips the test step only: the global
+# hooks (Gitleaks) and the branch name check still run, and CI runs the
+# tests.
+#
+# PRE_PUSH_FORCE_TESTS=1 runs the test step without a terminal (used
+# by Tests/test_git_hooks.py only).
+#
+# NOTE: The test step is skipped when running from a GUI git client
+# (e.g. SourceTree) due to a macOS Gatekeeper restriction that blocks
+# Swift Package Manager from parsing Package.swift in non-interactive
+# contexts. CI enforces these checks for all pushes regardless.
+# ──────────────────────────────────────────────────────────────
+
+# ──────────────────────────────────────────────────────────────
+# Run global hooks first (Gitleaks, etc.) — DO NOT REMOVE
+# Our local core.hooksPath overrides the global one, so we must
+# manually invoke it to keep Gitleaks and other global hooks alive.
+# ──────────────────────────────────────────────────────────────
+GLOBAL_HOOKS_PATH=$(git config --global --get core.hooksPath 2>/dev/null)
+if [ -n "$GLOBAL_HOOKS_PATH" ] && [ -x "$GLOBAL_HOOKS_PATH/pre-push" ]; then
+    # The global hook reads the same pushed refs from stdin; keep a copy for ours.
+    PUSHED_REFS=$(cat)
+    "$GLOBAL_HOOKS_PATH/pre-push" "$@" <<< "$PUSHED_REFS" || exit $?
+    exec <<< "$PUSHED_REFS"
+fi
+
+echo "Running pre-push checks..."
+echo ""
+
+# ── 1. Validate branch name ──────────────────────────────────
+
+# git passes each pushed ref on stdin as:
+#   <local-ref> <local-sha> <remote-ref> <remote-sha>
+# Branch types are the commit types plus hotfix/ and release/ (MEMORY §12).
+# `main` is allowed as-is, like in rudder-sdk-swift; GitHub rejects direct pushes to it.
+valid_branch_regex="^(feat|fix|refactor|perf|style|test|docs|chore|build|ci|revert|hotfix|release)\/[a-zA-Z0-9._-]+$|^main$"
+
+while read -r local_ref local_sha remote_ref remote_sha; do
+    # Skip non-branch refs (tags, delete operations, etc.)
+    if [[ "$local_ref" != refs/heads/* ]]; then
+        continue
+    fi
+
+    branch="${local_ref#refs/heads/}"
+
+    if [[ ! $branch =~ $valid_branch_regex ]]; then
+        echo "[ERROR] Invalid branch name: '$branch'"
+        echo ""
+        echo "  Branch names must follow this format:"
+        echo "    <type>/<description>"
+        echo ""
+        echo "  Allowed types: feat | fix | refactor | perf | style | test | docs | chore | build | ci | revert | hotfix | release"
+        echo ""
+        echo "  Examples:"
+        echo "    feat/sdk-1234-session-tracking"
+        echo "    fix/sprig-empty-traits"
+        echo ""
+        echo "  Rename with: git branch -m $branch <type>/<description>"
+        echo ""
+        exit 1
+    fi
+
+    echo "[SUCCESS] Branch name validation passed: '$branch'"
+    pushes_branch=1
+done
+
+# ── 2. Tests (Terminal only) ─────────────────────────────────
+
+if [ "$SKIP_PRE_PUSH_TESTS" = "1" ]; then
+    echo "[INFO] SKIP_PRE_PUSH_TESTS=1: skipping tests — CI will run them."
+    echo ""
+    echo "All pre-push checks passed. Ready to push."
+    exit 0
+fi
+
+# [ -t 1 ] checks if stdout is connected to an interactive terminal.
+# GUI git clients (SourceTree, Fork, etc.) are non-interactive, and
+# macOS Gatekeeper blocks Swift Package Manager in that context.
+# CI (GitHub Actions) enforces these checks.
+if [ ! -t 1 ] && [ "$PRE_PUSH_FORCE_TESTS" != "1" ]; then
+    echo "[INFO] Non-interactive context detected (GUI git client)."
+    echo "       Skipping tests — CI will enforce them."
+    echo ""
+    echo "All pre-push checks passed. Ready to push."
+    exit 0
+fi
+
+# Tags and branch deletes change no code: nothing to test.
+if [ -z "$pushes_branch" ]; then
+    echo ""
+    echo "All pre-push checks passed. Ready to push."
+    exit 0
+fi
+
+ROOT=$(git rev-parse --show-toplevel)
+BASE=origin/main
+
+# Pushing from a worktree, git exports GIT_DIR (and friends) to hooks. The tests
+# run git in temporary repos; inherited, those commands would write to this repo.
+unset $(git rev-parse --local-env-vars)
+
+run() {
+    echo ""
+    echo "[INFO] Running: make $*"
+    if ! make -s -C "$ROOT" "$@"; then
+        echo ""
+        echo "[ERROR] Tests failed (make $*). Please fix failing tests before pushing."
+        exit 1
+    fi
+}
+
+# Without origin/main we cannot tell what changed, so test everything
+# (the old behavior) rather than let an untested push through.
+if ! git rev-parse --verify --quiet "$BASE^{commit}" > /dev/null; then
+    echo ""
+    echo "[WARNING] $BASE not found locally (run 'git fetch origin'); running all tests."
+    run test
+    echo "[SUCCESS] All tests passed."
+    echo ""
+    echo "All pre-push checks passed. Ready to push."
+    exit 0
+fi
+
+# A branch that does not contain origin/main may carry commits main
+# already has (they would be tested and pushed again). Warn only.
+if ! git merge-base --is-ancestor "$BASE" HEAD; then
+    echo ""
+    echo "[WARNING] This branch is behind $BASE. Consider rebasing: git fetch origin && git rebase $BASE"
+fi
+
+# The plan covers the checked-out branch (HEAD) since it left origin/main,
+# committed changes only: {"test": [keys], "export": [...], "policy": bool}.
+# --no-dependents: "test" lists only the packages the branch changed.
+if ! PLAN=$(cd "$ROOT" && python3 scripts/ci_plan.py --base "$BASE" --no-dependents); then
+    echo "[ERROR] Could not compute the test plan (scripts/ci_plan.py)."
+    exit 1
+fi
+read -r POLICY PACKAGES <<< "$(python3 -c 'import json, sys; p = json.load(sys.stdin); print(int(p["policy"]), *p["test"])' <<< "$PLAN")"
+
+echo ""
+if [ "$POLICY" != "1" ] && [ -z "$PACKAGES" ]; then
+    echo "[INFO] No package or tooling changes since $BASE: no tests needed."
+else
+    [ -n "$PACKAGES" ] && echo "[INFO] Packages changed since $BASE → testing: ${PACKAGES// /, } (CI also tests any packages that depend on them)"
+    [ "$POLICY" = "1" ] && echo "[INFO] Scripts, release data or other tooling changed → running the Python tests"
+    [ "$POLICY" = "1" ] && run test-python
+    for key in $PACKAGES; do
+        run test PKG="$key"
+    done
+    echo "[SUCCESS] All affected tests passed."
+fi
+
+echo ""
+echo "All pre-push checks passed. Ready to push."

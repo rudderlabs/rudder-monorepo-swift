@@ -1,0 +1,7 @@
+{
+  "schemaVersion": 1,
+  "mode": "production; each import adds its public package repository",
+  "repositories": [
+    {"name": "rudderlabs/rudder-monorepo-swift", "role": "source", "remediationSource": "rudderlabs/rudder-monorepo-swift"}
+  ]
+}

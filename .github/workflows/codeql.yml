@@ -1,0 +1,81 @@
+name: CodeQL
+# Security scanning (ported from rudder-sdk-swift codeql.yml). Results: Security → Code scanning.
+# GitHub's default CodeQL setup must stay DISABLED, or this workflow cannot upload results.
+#   actions  the workflow files; always scanned
+#   swift    every package, built for the iOS Simulator (all packages support iOS; `swift build` on macOS would
+#            fail for iOS-only packages such as Sprig). Skipped until the first import adds the root Package.swift.
+# Advisory for now: add it to the required checks once it is green with real packages (PLAN-PRODUCTION B.4).
+on:
+  push:
+    branches: [main, 'release/*-*.*.x']
+  pull_request:
+    branches: [main, 'release/*-*.*.x']
+  schedule:
+    - cron: '0 6 * * 1'  # Mondays 06:00 UTC
+permissions: {}
+concurrency:
+  group: codeql-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+jobs:
+  languages:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
+    steps:
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@351661ca32ac09a36dc5ee2d536e3128f2a3c8ed # v2.22.0
+        with:
+          egress-policy: audit
+
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+      - name: Languages to scan
+        id: matrix
+        run: |
+          include='{"language":"actions","build-mode":"none","runner":"ubuntu-latest"}'
+          if [ -f Package.swift ]; then
+            include="$include,"'{"language":"swift","build-mode":"manual","runner":"macos-15"}'
+          else
+            echo "::notice::No Package.swift yet (no packages imported); scanning workflows only"
+          fi
+          echo "matrix={\"include\":[$include]}" >> "$GITHUB_OUTPUT"
+
+  analyze:
+    name: Analyze (${{ matrix.language }})
+    needs: languages
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 90
+    permissions:
+      security-events: write  # upload results to the Security tab
+      packages: read
+      actions: read
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.languages.outputs.matrix) }}
+    steps:
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@351661ca32ac09a36dc5ee2d536e3128f2a3c8ed # v2.22.0
+        with:
+          egress-policy: audit
+
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+      - name: Initialise CodeQL
+        uses: github/codeql-action/init@9e907b5e64f6b83e7804b09294d44122997950d6 # v4.32.3
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
+      - name: Build Swift packages
+        if: matrix.build-mode == 'manual'
+        run: |
+          scheme="$(xcodebuild -list -json | python3 -c 'import json, sys; print(next(s for s in json.load(sys.stdin)["workspace"]["schemes"] if s.endswith("-Package")))')"
+          xcodebuild build -quiet -scheme "$scheme" -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@9e907b5e64f6b83e7804b09294d44122997950d6 # v4.32.3
+        with:
+          category: "/language:${{ matrix.language }}"

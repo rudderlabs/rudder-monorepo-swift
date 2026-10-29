@@ -11,6 +11,10 @@ name: Release Sanity
 
 on:
   workflow_call:
+    secrets:
+      RELEASE_PRIVATE_KEY:
+        description: Private key for the release GitHub App (mints the token that starts the suite)
+        required: true
     inputs:
       phase:
         description: "Always pre-release (the only run). Recorded in the suite's run name and report."
@@ -48,8 +52,8 @@ jobs:
     runs-on: ubuntu-latest
     continue-on-error: true
     timeout-minutes: 75
-    # The release App key lives in this environment (as for publish.yml). A missing key or App permission degrades to
-    # a warning inside the job, never a failed release.
+    # The release App key is passed in by publish.yml (a called workflow sees only the secrets its caller passes).
+    # A missing key or App permission degrades to a warning inside the job, never a failed release.
     environment: spm-release
     steps:
       - name: Harden the runner (Audit all outbound calls)

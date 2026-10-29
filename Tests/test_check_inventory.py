@@ -1,6 +1,7 @@
 """One package list and one reviewed allowlist drive checks, workflows and generated GitHub files."""
 import json
 from pathlib import Path
+import re
 import shutil
 import sys
 import tempfile
@@ -192,6 +193,23 @@ class InventoryTests(unittest.TestCase):
 
 
 class ReleaseConfigTests(unittest.TestCase):
+    def test_called_workflows_receive_the_release_key(self):
+        # A called workflow sees no organization or repository secret its caller does not pass.
+        workflows = {p.name: p.read_text() for p in (ROOT / ".github/workflows").glob("*.yml")}
+        calls = []
+        for name, text in workflows.items():
+            for job in re.split(r"\n(?=  [a-z][a-z0-9_-]*:\n)", text.split("\njobs:\n", 1)[1]):
+                called = re.search(r"^    uses: \./\.github/workflows/([a-z-]+\.yml)$", job, re.M)
+                if called and "secrets.RELEASE_PRIVATE_KEY" in workflows[called[1]]:
+                    calls.append((name, called[1]))
+                    self.assertIn("      RELEASE_PRIVATE_KEY: ${{ secrets.RELEASE_PRIVATE_KEY }}\n", job + "\n", name)
+                    declared = workflows[called[1]].split("  workflow_call:\n", 1)[1].split("\njobs:\n", 1)[0]
+                    self.assertRegex(declared, r"\n      RELEASE_PRIVATE_KEY:\n(        .*\n)*?        required: true\n",
+                                     called[1])
+        self.assertIn(("publish.yml", "release-sanity.yml"), calls)
+        self.assertIn(("release-please.yml", "publish.yml"), calls)
+        self.assertIn(("complete-publication.yml", "publish.yml"), calls)
+
     def test_changelog_sections_match_the_sdk_release_types(self):
         sections = {s["type"]: s["hidden"] for s in load(ROOT / "release-please-config.json")["changelog-sections"]}
         self.assertEqual(sections, {**dict.fromkeys(["feat", "fix", "perf", "refactor", "chore"], False),

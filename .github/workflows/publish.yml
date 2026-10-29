@@ -214,6 +214,8 @@ jobs:
     needs: publish
     if: needs.publish.result == 'success' && needs.publish.outputs.package == 'swift-sdk' && needs.publish.outputs.takeover != 'true' && needs.publish.outputs.status == 'awaiting_review'
     uses: ./.github/workflows/release-sanity.yml
+    secrets:
+      RELEASE_PRIVATE_KEY: ${{ secrets.RELEASE_PRIVATE_KEY }}
     with:
       phase: pre-release
       sdk_version: ${{ format('publication/swift-sdk/{0}', needs.publish.outputs.version) }}

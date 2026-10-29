@@ -73,7 +73,9 @@ jobs:
       - name: Build Swift packages
         if: matrix.build-mode == 'manual'
         run: |
-          scheme="$(xcodebuild -list -json | python3 -c 'import json, sys; print(next(s for s in json.load(sys.stdin)["workspace"]["schemes"] if s.endswith("-Package")))')"
+          # SwiftPM adds a `<name>-Package` scheme only for two or more products; with one, its scheme is the only one.
+          scheme="$(xcodebuild -list -json | python3 -c 'import json, sys; s = json.load(sys.stdin)["workspace"]["schemes"]; print(next((x for x in s if x.endswith("-Package")), s[0] if len(s) == 1 else ""))')"
+          [ -n "$scheme" ] || { echo "::error::No -Package scheme and more than one scheme"; exit 1; }
           xcodebuild build -quiet -scheme "$scheme" -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@9e907b5e64f6b83e7804b09294d44122997950d6 # v4.32.3

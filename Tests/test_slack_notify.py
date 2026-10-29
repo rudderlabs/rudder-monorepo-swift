@@ -4,6 +4,7 @@ import io
 import json
 import os
 from pathlib import Path
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -237,6 +238,17 @@ class WorkflowTests(unittest.TestCase):
         self.assertIn('if [ -f Package.swift ]; then', codeql)
         self.assertIn("generic/platform=iOS Simulator", codeql)
         self.assertIn('permissions: {}', codeql)
+
+    def test_codeql_builds_the_only_scheme_without_a_package_scheme(self):
+        line = next(l for l in self.read('codeql.yml').splitlines() if 'xcodebuild -list -json' in l)
+        snippet = line.split("python3 -c '", 1)[1].rsplit("'", 1)[0]
+        for schemes, expected in ((['RudderMonorepoSwift'], 'RudderMonorepoSwift'),
+                                  (['Braze', 'RudderMonorepoSwift-Package', 'RudderStackAnalytics'],
+                                   'RudderMonorepoSwift-Package'),
+                                  (['Braze', 'RudderStackAnalytics'], '')):
+            out = subprocess.run([sys.executable, '-c', snippet], input=json.dumps({'workspace': {'schemes': schemes}}),
+                                 capture_output=True, text=True, check=True).stdout.strip()
+            self.assertEqual(out, expected)
 
 
 if __name__ == '__main__':

@@ -95,6 +95,10 @@ class MatrixTests(unittest.TestCase):
         self.assertEqual(sorted(jobs), sorted(["packages", "policy", "lint", "test", "export", "ci-ok",
                                                "sonarcloud", "notify"]))
 
+    def test_sonarcloud_runs_only_when_enabled(self):
+        block = WORKFLOW.split("\n  sonarcloud:\n", 1)[1].split("\n\n  ", 1)[0]
+        self.assertIn("if: vars.SONARCLOUD_ENABLED == 'true'", block)
+
     def test_ci_ok_passes_skipped_and_fails_failed_or_cancelled(self):
         self.assertEqual(failed_needs({"policy": {"result": "success"}, "test": {"result": "skipped"}}), [])
         self.assertEqual(failed_needs({"policy": {"result": "failure"}, "lint": {"result": "success"},

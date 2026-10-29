@@ -51,7 +51,9 @@ class WriteConsumerTests(unittest.TestCase):
 
     def test_minor_versions_and_unsupported_packages(self):
         write_consumer(self.folder, {'target': 'T', 'platforms': ['iOS 15.4']}, URL, '1.0.0')
-        self.assertIn('platforms: [.iOS(.v15_4)]', (self.folder / 'Package.swift').read_text())
+        self.assertIn('platforms: [.iOS("15.4")]', (self.folder / 'Package.swift').read_text())  # no .v15_4 exists
+        write_consumer(self.folder, {'target': 'T', 'platforms': ['iOS 15.0']}, URL, '1.0.0')
+        self.assertIn('platforms: [.iOS(.v15)]', (self.folder / 'Package.swift').read_text())
         with self.assertRaisesRegex(ValueError, 'supports none'):
             write_consumer(self.folder, {'target': 'T', 'platforms': ['tvOS 15']}, URL, '1.0.0')
 

@@ -80,6 +80,11 @@ def platform_builds(stage, package, state):
             raise RuntimeError(f"Release build failed for {platform} ({destination})\n{error}") from error
 
 
+def platform(name, major, minor=None):
+    """`.iOS(.v15)` for a whole version; `.iOS("15.4")` otherwise, since PackageDescription has no `.v15_4`."""
+    return f'.{name}("{major}.{minor}")' if minor and minor != "0" else f".{name}(.v{major})"
+
+
 def platforms(package):
     """Render the package's own `platforms` and `toolsVersion`; the root manifest is never copied."""
     values, tools = package.get("platforms", []), package.get("toolsVersion", "")
@@ -88,7 +93,7 @@ def platforms(package):
         raise ValueError("Each package needs explicit platforms (e.g. \"iOS 15\") and toolsVersion (e.g. \"5.9\")")
     if len({m[1] for m in matches}) != len(matches):
         raise ValueError("Duplicate platform in package inventory")
-    return tools, [f".{m[1]}(.v{m[2]}{'_' + m[3] if m[3] and m[3] != '0' else ''})" for m in matches]
+    return tools, [platform(*m.groups()) for m in matches]
 
 
 def requirement(value):

@@ -78,6 +78,10 @@ class PackageExportTests(unittest.TestCase):
             markers(self.root)
         commit(self.root, "test: change inventory")
 
+    def test_minor_platform_versions_render_as_strings(self):
+        self.edit(lambda p: p["sprig"].update(platforms=["iOS 15.4", "macOS 10.15"]))
+        self.assertIn('    platforms: [.iOS("15.4"), .macOS("10.15")],\n', self.export("sprig")[1])  # no .v15_4 exists
+
     def test_package_platforms_and_tools_version_replace_the_root(self):
         _, text = self.export("sprig")
         self.assertTrue(text.startswith("// swift-tools-version: 5.10\n"))

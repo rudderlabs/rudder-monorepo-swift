@@ -7,6 +7,7 @@ import re
 import tempfile
 
 from common import ROOT, OWNER, allowlist, anonymous_env, inventory, run, write_json
+from project import platform
 
 CHECKED_PLATFORMS = ('iOS', 'macOS')
 DESTINATIONS = {'iOS': 'generic/platform=iOS Simulator', 'macOS': 'generic/platform=macOS'}
@@ -31,7 +32,7 @@ def write_consumer(folder, package, url, version):
         match = VERSION.fullmatch(minimum)
         if not match:
             raise ValueError(f'Unsupported platform version: {name} {minimum}')
-        supported.append(f'.{name}(.v{match[1]}{"_" + match[2] if match[2] and match[2] != "0" else ""})')
+        supported.append(platform(name, *match.groups()))
     if not supported:
         raise ValueError(f'{package["target"]} supports none of {", ".join(CHECKED_PLATFORMS)}')
     (folder / 'Sources/Consumer').mkdir(parents=True, exist_ok=True)

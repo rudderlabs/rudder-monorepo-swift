@@ -47,5 +47,5 @@ Environment secrets, not repository secrets: Release Please and Tag & Release Pa
 
 ## SonarCloud and CodeQL
 
-- SonarCloud: before the first package import, create the project `rudderlabs_rudder-monorepo-swift` in organization `rudderlabs` (Analyze new project) and turn Automatic Analysis off (CI runs the scan). `SONAR_TOKEN` is an organization secret. Until `Packages/` or `Integrations/` exists, the `sonarcloud` job skips the scan; after that, a missing project fails the job.
+- SonarCloud: off until the repository variable `SONARCLOUD_ENABLED` is `true`; the `sonarcloud` job is skipped until then. Before turning it on, create the project `rudderlabs_rudder-monorepo-swift` in organization `rudderlabs` (Analyze new project) and turn Automatic Analysis off (CI runs the scan). `SONAR_TOKEN` is an organization secret. Until `Packages/` or `Integrations/` exists, the `sonarcloud` job skips the scan; after that, a missing project fails the job.
 - CodeQL: keep GitHub's **default** CodeQL setup disabled (Settings → Code security), or `codeql.yml` cannot upload results.

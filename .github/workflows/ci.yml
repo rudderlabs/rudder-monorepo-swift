@@ -166,7 +166,9 @@ jobs:
 
   sonarcloud:
     # SonarCloud code quality (ported from rudder-sdk-swift pr-validation). Scans the package sources that exist;
-    # with no packages yet there is nothing to scan and the job passes.
+    # with no packages yet there is nothing to scan and the job passes. Skipped until the repository variable
+    # SONARCLOUD_ENABLED is `true` (set it once the SonarCloud project exists).
+    if: vars.SONARCLOUD_ENABLED == 'true'
     runs-on: ubuntu-latest
     environment: sonarcloud
     steps:

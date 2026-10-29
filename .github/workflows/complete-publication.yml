@@ -1,0 +1,85 @@
+name: "Tag & Release Packages"
+# Completes reviewed publications (D20): manual, no inputs, every run scans all packages.
+# Abandon Unpublished Version deletes a discarded version's monorepo Release, so nothing queues it; until that run
+# finishes, a merged-then-reverted publish PR is reported as abandoned, never tagged.
+# Maintenance versions (source on release/<key>-X.Y.x) complete on the public release/X.Y.x branch.
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: publication-recovery
+  cancel-in-progress: false
+jobs:
+  pending:
+    if: github.repository == 'rudderlabs/rudder-monorepo-swift' && vars.RELEASES_ENABLED == 'true' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+      pending: ${{ steps.plan.outputs.pending }}
+      broken_items: ${{ steps.plan.outputs.broken_items }}
+    steps:
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@351661ca32ac09a36dc5ee2d536e3128f2a3c8ed # v2.22.0
+        with:
+          egress-policy: audit
+
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Discover incomplete source component releases
+        id: plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/publication_queue.py
+      - name: Fail on broken items after the others are queued
+        if: steps.plan.outputs.broken == 'true'
+        run: |
+          echo "Some items are incomplete; see the annotations. The other packages still complete."
+          exit 1
+  complete:
+    name: publish (${{ matrix.package }})
+    needs: pending
+    # A broken item fails the pending job but never blocks the others.
+    if: ${{ !cancelled() && needs.pending.outputs.pending == 'true' }}
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix: ${{ fromJSON(needs.pending.outputs.matrix) }}
+    uses: ./.github/workflows/publish.yml
+    with:
+      package: ${{ matrix.package }}
+      version: ${{ matrix.version }}
+      source_sha: ${{ matrix.source_sha }}
+    secrets:
+      RELEASE_PRIVATE_KEY: ${{ secrets.RELEASE_PRIVATE_KEY }}
+  attention:
+    # A Slack message only when this run left something incomplete (a broken queue item or a failed publish leg);
+    # silent when everything published or nothing was pending. Never fails the run.
+    name: Slack attention
+    needs: [pending, complete]
+    if: always() && needs.pending.result != 'skipped'
+    runs-on: ubuntu-latest
+    environment: spm-release
+    permissions:
+      contents: read
+      actions: read  # download each publish leg's result artifact
+    steps:
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@351661ca32ac09a36dc5ee2d536e3128f2a3c8ed # v2.22.0
+        with:
+          egress-policy: audit
+
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+      - name: Send Slack notification if something needs attention
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PLAN: ${{ needs.pending.outputs.matrix }}
+          BROKEN: ${{ needs.pending.outputs.broken_items }}
+          PENDING_RESULT: ${{ needs.pending.result }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_RELEASE_WEBHOOK_URL }}
+        run: python3 scripts/slack_notify.py attention --plan "$PLAN" --broken "$BROKEN" --pending-result "$PENDING_RESULT"

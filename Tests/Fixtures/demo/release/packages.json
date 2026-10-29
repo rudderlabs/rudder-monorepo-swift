@@ -1,0 +1,78 @@
+{
+  "schemaVersion": 1,
+  "packages": {
+    "swift-sdk": {
+      "path": "Packages/DemoSDK",
+      "target": "DemoSDK",
+      "component": "swift-sdk",
+      "repository": "rudder-sdk-swift",
+      "policies": {},
+      "resources": [
+        "PrivacyInfo.xcprivacy",
+        "Fixture.json"
+      ],
+      "platforms": [
+        "iOS 15",
+        "macOS 12"
+      ],
+      "toolsVersion": "5.9"
+    },
+    "sprig": {
+      "path": "Integrations/Sprig",
+      "target": "DemoSprig",
+      "component": "integration-sprig",
+      "repository": "integration-swift-sprig",
+      "policies": {
+        "DemoSDK": {
+          "mode": "external",
+          "package": "swift-sdk"
+        },
+        "DemoShared": {
+          "mode": "vendor"
+        }
+      },
+      "sdkMinimum": "0.1.0",
+      "platforms": [
+        "iOS 15",
+        "macOS 12"
+      ],
+      "toolsVersion": "5.9"
+    },
+    "firebase": {
+      "path": "Integrations/Firebase",
+      "target": "DemoFirebase",
+      "component": "integration-firebase",
+      "repository": "integration-swift-firebase",
+      "policies": {
+        "DemoSDK": {
+          "mode": "external",
+          "package": "swift-sdk"
+        },
+        "DemoShared": {
+          "mode": "vendor"
+        }
+      },
+      "sdkMinimum": "0.1.0",
+      "vendorProducts": [
+        "OrderedCollections"
+      ],
+      "vendors": [
+        {
+          "url": "https://github.com/apple/swift-collections.git",
+          "identity": "swift-collections",
+          "product": "OrderedCollections",
+          "requirement": {
+            "kind": "exact",
+            "lower": "1.1.4",
+            "upper": null
+          }
+        }
+      ],
+      "platforms": [
+        "iOS 15",
+        "macOS 12"
+      ],
+      "toolsVersion": "5.9"
+    }
+  }
+}

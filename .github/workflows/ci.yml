@@ -1,0 +1,222 @@
+name: PR Validation
+# PR and main checks (D22: iOS Simulator only; other platforms build at release time in publish.py).
+# Maintenance branches release/<key>-X.Y.x (maintenance_branch.py) get the same checks as main.
+# D34: the package jobs and `policy` run only for what a PR or push affects (ci_plan.py); a push compares with its
+# previous commit and runs all when that commit is unknown (new branch, force push).
+# `ci-ok` is the only required check: the matrix job names change as packages are added.
+# `sonarcloud` and `notify` stay outside `ci-ok` (advisory): Sonar becomes required once it is green, and the Slack
+# message never changes a check result.
+# Every command lives in scripts/ (ci_plan.py, package_ci.py), so `make test` and `make lint` run the same commands.
+on:
+  pull_request:
+    branches: [main, 'release/*-*.*.x']
+  push:
+    branches: [main, 'release/*-*.*.x']
+permissions:
+  contents: read
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+jobs:
+  packages:
+    # The CI plan: package keys for the test and export matrices (`[]` skips the job) and whether policy runs.
+    runs-on: ubuntu-latest
+    outputs:
+      test: ${{ steps.plan.outputs.test }}
+      export: ${{ steps.plan.outputs.export }}
+      policy: ${{ steps.plan.outputs.policy }}
+    steps:
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@351661ca32ac09a36dc5ee2d536e3128f2a3c8ed # v2.22.0
+        with:
+          egress-policy: audit
+
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+          fetch-depth: 0  # the PR base or pushed-over commit, to list the changed paths
+      - id: plan
+        run: |
+          if [ "$EVENT" = pull_request ]; then
+            # The checkout is the PR merged into the current base branch: its first parent is that base, so
+            # changes merged there after the PR was opened are not counted as the PR's.
+            python3 scripts/ci_plan.py --base HEAD^1
+          else
+            python3 scripts/ci_plan.py --before "$BEFORE"
+          fi
+        env:
+          EVENT: ${{ github.event_name }}
+          BEFORE: ${{ github.event.before }}
+
+  policy:
+    # macOS: dependency_policy.py needs `swift package dump-package`, and the RUN_SWIFT_BUILD_TESTS
+    # unit tests run `xcodebuild` platform builds (the release-time check), which need Xcode.
+    needs: packages
+    if: needs.packages.outputs.policy == 'true'
+    runs-on: macos-15
+    steps:
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@351661ca32ac09a36dc5ee2d536e3128f2a3c8ed # v2.22.0
+        with:
+          egress-policy: audit
+
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+      - name: Policy checks (markers, inventory, generated files, action pins)
+        id: check
+        run: make check
+      - name: Explain a stale marker
+        if: failure() && steps.check.outcome == 'failure'
+        run: echo "::error::Run make sync (or make prepare to let the pre-commit hook do it) and commit the result"
+      - name: Install git-filter-repo (history import test)
+        run: HOMEBREW_NO_AUTO_UPDATE=1 brew install git-filter-repo
+      - name: Python unit tests
+        run: python3 -m unittest discover -s Tests -p 'test_*.py'
+        env:
+          RUN_SWIFT_BUILD_TESTS: "1"
+
+  lint:
+    runs-on: macos-15
+    steps:
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@351661ca32ac09a36dc5ee2d536e3128f2a3c8ed # v2.22.0
+        with:
+          egress-policy: audit
+
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+      - name: Install SwiftLint
+        run: command -v swiftlint || HOMEBREW_NO_AUTO_UPDATE=1 brew install swiftlint
+      # The root .swiftlint.yml excludes Tests/ (fixtures are test data), Examples/ and manifests.
+      # With no lintable files (no packages yet) this passes.
+      - name: SwiftLint
+        run: python3 scripts/package_ci.py lint --all --strict --reporter github-actions-logging
+
+  test:
+    name: test (${{ matrix.package }})
+    needs: packages
+    if: needs.packages.outputs.test != '[]'
+    runs-on: macos-15
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        package: ${{ fromJSON(needs.packages.outputs.test) }}
+    steps:
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@351661ca32ac09a36dc5ee2d536e3128f2a3c8ed # v2.22.0
+        with:
+          egress-policy: audit
+
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+      # xcodebuild test on the first available iPhone of the newest iOS runtime (scripts/ci/pick-simulator.sh).
+      # A temporary per-package scheme builds only that package's test targets (package_ci.py test_scheme).
+      - name: iOS Simulator tests
+        run: python3 scripts/package_ci.py test --package "$PACKAGE"
+        env:
+          PACKAGE: ${{ matrix.package }}
+
+  export:
+    name: export (${{ matrix.package }})
+    needs: packages
+    if: needs.packages.outputs.export != '[]'
+    runs-on: macos-15
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        package: ${{ fromJSON(needs.packages.outputs.export) }}
+    steps:
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@351661ca32ac09a36dc5ee2d536e3128f2a3c8ed # v2.22.0
+        with:
+          egress-policy: audit
+
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+      # Export to a temporary folder, check the generated manifest, build it for generic iOS.
+      - name: Export check
+        run: python3 scripts/package_ci.py export-check --package "$PACKAGE"
+        env:
+          PACKAGE: ${{ matrix.package }}
+
+  ci-ok:
+    # The only required status check. Skipped jobs (nothing affected, or no packages) pass; failed or cancelled fail.
+    if: always()
+    needs: [packages, policy, lint, test, export]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@351661ca32ac09a36dc5ee2d536e3128f2a3c8ed # v2.22.0
+        with:
+          egress-policy: audit
+
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+      - name: All needed jobs passed
+        run: python3 scripts/package_ci.py ci-ok
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+
+  sonarcloud:
+    # SonarCloud code quality (ported from rudder-sdk-swift pr-validation). Scans the package sources that exist;
+    # with no packages yet there is nothing to scan and the job passes.
+    runs-on: ubuntu-latest
+    environment: sonarcloud
+    steps:
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@351661ca32ac09a36dc5ee2d536e3128f2a3c8ed # v2.22.0
+        with:
+          egress-policy: audit
+
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+          fetch-depth: 0  # full history for Sonar's new-code and blame data
+      - name: Source folders to scan
+        id: sources
+        run: |
+          sources=""
+          for d in Packages Integrations; do if [ -d "$d" ]; then sources="${sources}${d},"; fi; done
+          echo "list=${sources%,}" >> "$GITHUB_OUTPUT"
+          [ -n "$sources" ] || echo "::notice::No package sources yet; SonarCloud has nothing to scan"
+      - name: SonarCloud analysis
+        if: steps.sources.outputs.list != ''
+        uses: ./.github/actions/sonarcloud-analysis
+        with:
+          sonar_token: ${{ secrets.SONAR_TOKEN }}
+          sources: ${{ steps.sources.outputs.list }}
+
+  notify:
+    # One Slack message per PR validation run, passed or failed (same format as rudder-sdk-swift; no run link).
+    # SLACK_PR_WEBHOOK_URL is separate from the release webhook so PR messages can move to their own channel.
+    name: Slack PR summary
+    if: always() && github.event_name == 'pull_request'
+    needs: [packages, policy, lint, test, export, sonarcloud, ci-ok]
+    runs-on: ubuntu-latest
+    environment: notifications
+    permissions:
+      contents: read
+      actions: read  # list this run's failed jobs, e.g. test (firebase)
+    steps:
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@351661ca32ac09a36dc5ee2d536e3128f2a3c8ed # v2.22.0
+        with:
+          egress-policy: audit
+
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+      - name: Send Slack notification
+        continue-on-error: true
+        run: python3 scripts/slack_notify.py pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SLACK_JOB_NAME: Slack PR summary
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_PR_WEBHOOK_URL }}

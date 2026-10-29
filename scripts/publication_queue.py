@@ -14,20 +14,23 @@ FAILURES = (ValueError, RuntimeError, OSError, KeyError)
 
 
 def state(repo, key, version, sha, public_releases, base=RELEASE_BRANCH):
-    """None when the version is complete, otherwise its pending state. `base` is main or release/X.Y.x."""
+    """None when the version is complete, otherwise its pending state. `base` is main or release/X.Y.x, or None when
+    the source commit is on no live line (e.g. a retired maintenance line): then only a complete version passes."""
     if git(repo, 'for-each-ref', '--format=%(refname)', f'refs/tags/{version}'):
         git(repo, 'checkout', '--detach', f'refs/tags/{version}')
         provenance = verify_tree(repo)
         if provenance['sourceCommit'] != sha or provenance['package'] != key or provenance['version'] != version:
             raise ValueError('Published tag conflicts with source release intent')
-        publication_sha = git(repo, 'rev-parse', 'HEAD')
-        git(repo, 'merge-base', '--is-ancestor', publication_sha, f'origin/{base}')
+        if base:
+            git(repo, 'merge-base', '--is-ancestor', git(repo, 'rev-parse', 'HEAD'), f'origin/{base}')
         # The verified tag carries the provenance; Release notes are presentation (see publish.ensure_release).
         matches = [r for r in public_releases if r['tag_name'] == version]
         if matches:
             if len(matches) != 1 or matches[0]['draft']:
                 raise ValueError('Existing public Release metadata conflicts')
             return None
+        return 'pending'
+    if base is None:
         return 'pending'
     # An open bot PR waits for review; Tag & Release Packages never rebuilds it.
     pr = find_pr(key, version)
@@ -50,7 +53,7 @@ def queue(root=ROOT):
     # SDK work precedes integration work.
     for key in sorted(packages, key=lambda k: k != SDK):
         prefix = packages[key]['component'] + '-'
-        intents, bases = [], {}
+        intents, bases, lineless = [], {}, {}
         for release in (r for page in pages for r in page):
             tag = release['tag_name']
             if release['draft'] or release['prerelease'] or not tag.startswith(prefix):
@@ -60,8 +63,12 @@ def queue(root=ROOT):
                 if not SEMVER.fullmatch(version):
                     raise ValueError('Malformed component release')
                 sha = git(root, 'rev-parse', f'refs/tags/{tag}^{{commit}}')
-                # On main, or on its maintenance branch release/<key>-X.Y.x; anything else is refused.
-                bases[version] = public_base(source_line(root, key, sha, version), version)
+                # On main, or on its maintenance branch release/<key>-X.Y.x. Anything else (e.g. a retired line
+                # whose branch is deleted) passes only when its public tag and Release are already complete.
+                try:
+                    bases[version] = public_base(source_line(root, key, sha, version), version)
+                except ValueError as error:
+                    bases[version], lineless[version] = None, str(error)
                 intents.append({'package': key, 'version': version, 'source_sha': sha})
             except FAILURES as error:
                 skipped.append({'package': key, 'version': version, 'status': 'incomplete', 'error': str(error)})
@@ -84,7 +91,9 @@ def queue(root=ROOT):
                 except FAILURES as error:
                     skipped.append({**intent, 'status': 'incomplete', 'error': str(error)})
                     continue
-                if status == 'pending':
+                if status and intent['version'] in lineless:
+                    skipped.append({**intent, 'status': 'incomplete', 'error': lineless[intent['version']]})
+                elif status == 'pending':
                     pending.append(intent)
                 elif status:
                     skipped.append({**intent, 'status': status})

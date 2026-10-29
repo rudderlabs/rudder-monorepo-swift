@@ -130,7 +130,7 @@ class PublicationQueueTests(unittest.TestCase):
         self.assertEqual(pending[1], {'package': 'sprig', 'version': '0.2.0', 'source_sha': 'a' * 40})
         self.assertEqual({s['version']: s['status'] for s in self.skipped},
                          {'0.1.9': 'incomplete', '0.1.2': 'abandoning', '0.1.3': 'awaiting_review'})
-        self.assertIn('neither main nor release/sprig-0.1.x', self.skipped[0]['error'])
+        self.assertIn('neither main nor release/sprig-0.1.x', next(s['error'] for s in self.skipped if s['version'] == '0.1.9'))
         # A pending maintenance version is queued like any other, in version order with the main line.
         del prs[('sprig', '0.1.3', 'normal')]
         self.assertEqual([i['version'] for i in self.run_queue(prs=prs, lines=lines)], ['0.1.1', '0.1.3', '0.2.0'])
@@ -138,6 +138,19 @@ class PublicationQueueTests(unittest.TestCase):
         lines['0.1.2'] = 'main'
         self.run_queue(prs=prs, lines=lines)
         self.assertEqual({s['version']: s['status'] for s in self.skipped}, {'0.1.9': 'incomplete', '0.1.2': 'incomplete'})
+
+    def test_retired_line_release_counts_only_when_complete(self):
+        # Retiring a maintenance line deletes its branch; its published versions are history, not broken items.
+        retired = {'0.1.1': ValueError('Source commit is on neither main nor release/sprig-0.1.x')}
+        self.assertEqual(self.run_queue(published=True, lines=retired), [])
+        self.assertEqual(self.skipped, [])
+        # Without the public tag and Release it is still refused: no live line to publish from.
+        for options in ({}, {'published': True, 'release_missing': True}):
+            with self.subTest(**options):
+                self.assertEqual(self.run_queue(lines=retired, **options), [])
+                self.assertEqual([(s['status'], s['error']) for s in self.skipped],
+                                 [('incomplete', 'Source commit is on neither main nor release/sprig-0.1.x')])
+        self.assertEqual(self.find_pr, [])  # never looks for a PR to publish from
 
     def test_abandoned_version_is_reported_and_a_later_version_proceeds(self):
         later = {'package': 'sprig', 'version': '0.1.2', 'source_sha': 'a' * 40}

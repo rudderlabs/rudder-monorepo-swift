@@ -67,6 +67,7 @@ def package_requirements(data, packages):
             for dependency in targets[name]["dependencies"]:
                 if "product" in dependency:
                     product, identity = dependency["product"][:2]
+                    identity = identity.lower()  # SwiftPM package identities ignore case
                     if identity not in canonical:
                         raise ValueError("Vendor product has no canonical Git requirement")
                     products[(product, identity)] = {"product": product, "identity": identity,

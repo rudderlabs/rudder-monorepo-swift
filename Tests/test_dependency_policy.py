@@ -144,6 +144,15 @@ class DependencyPolicyTests(unittest.TestCase):
         self.assertEqual(affected(["Shared/DemoShared/DemoNormalizer.swift"], self.root), ["sprig", "firebase"])
         self.assertEqual(affected(["Shared/README.md"], self.root), [])
 
+    def test_vendor_package_names_match_identities_in_any_case(self):
+        # e.g. AppsFlyer writes package: "AppsFlyerFramework-Static"; SwiftPM's identity is lowercase.
+        expected = load(self.root / "release/packages.json")
+        path = self.root / "Package.swift"
+        path.write_text(path.read_text().replace('package: "swift-collections"', 'package: "Swift-Collections"'))
+        sync_inventory(self.root)
+        self.assertEqual(load(self.root / "release/packages.json"), expected)
+        self.assertEqual(markers(self.root, check=True), [])
+
     def test_unsupported_revision_fails_explicitly(self):
         path = self.root / "Package.swift"
         path.write_text(path.read_text().replace('exact: "1.1.4"', 'revision: "' + "a" * 40 + '"'))

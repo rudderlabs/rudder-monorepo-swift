@@ -113,15 +113,15 @@ def pr_message(event, failed):
 
 
 def run_jobs():
-    """This run's jobs (current attempt) from the GitHub API; [] when they cannot be read."""
+    """This run's jobs (current attempt) from the GitHub API. Raises when they cannot be read, so the caller posts
+    nothing: an unread job list must never be announced as a passed run."""
     endpoint = (f"repos/{os.environ['GITHUB_REPOSITORY']}/actions/runs/{os.environ['GITHUB_RUN_ID']}"
                 f"/attempts/{os.environ.get('GITHUB_RUN_ATTEMPT', '1')}/jobs?per_page=100")
-    try:
-        return [job for page in json.loads(run(['gh', 'api', '--paginate', '--slurp', endpoint]))
-                for job in page.get('jobs', [])]
-    except (RuntimeError, ValueError, OSError) as error:
-        print(f'::warning::Could not read the run jobs: {short(error)}')
-        return []
+    jobs = [job for page in json.loads(run(['gh', 'api', '--paginate', '--slurp', endpoint]))
+            for job in page.get('jobs', [])]
+    if not jobs:
+        raise RuntimeError('the run has no readable jobs')
+    return jobs
 
 
 def download_jobs(plan, temp):

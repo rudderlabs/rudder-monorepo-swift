@@ -176,6 +176,21 @@ class CommandTests(unittest.TestCase):
         self.assertIn('• lint', sent.call_args.args[0])
 
 
+    def test_pr_command_posts_nothing_when_the_run_jobs_cannot_be_read(self):
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / 'event.json'
+            path.write_text(json.dumps(event()))
+            env = {'GITHUB_EVENT_PATH': str(path), 'GITHUB_REPOSITORY': 'rudderlabs/rudder-monorepo-swift',
+                   'GITHUB_RUN_ID': '1', 'SLACK_JOB_NAME': 'Slack PR summary'}
+            for failure in (RuntimeError('HTTP 403'), '[]', '[{"jobs": []}]'):
+                kwargs = {'side_effect': failure} if isinstance(failure, Exception) else {'return_value': failure}
+                with self.subTest(failure=failure), patch.dict(os.environ, env), \
+                        patch.object(slack_notify, 'run', **kwargs), patch.object(slack_notify, 'post') as sent, \
+                        contextlib.redirect_stdout(io.StringIO()) as output:
+                    self.assertEqual(main(['pr']), 0)
+                    sent.assert_not_called()
+                    self.assertIn('::warning::Slack notification not built', output.getvalue())
+
 class WorkflowTests(unittest.TestCase):
     def read(self, name):
         return (ROOT / '.github/workflows' / name).read_text()

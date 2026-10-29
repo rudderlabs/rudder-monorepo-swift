@@ -174,15 +174,15 @@ class TakeoverTests(unittest.TestCase):
     def test_awaiting_takeover_does_not_block_other_packages(self):
         sha = 'a' * 40
         plan = [{'package': 'swift-sdk', 'version': '1.4.1', 'sha': sha}, {'package': 'sprig', 'version': '1.0.1', 'sha': sha}]
-        jobs = {'swift-sdk': {'result': 'success', 'outputs': {
+        jobs = {('swift-sdk', '1.4.1'): {'result': 'success', 'outputs': {
                     'status': 'published', 'package': 'swift-sdk', 'version': '1.4.1', 'tag': '1.4.1',
                     'sourceCommit': sha, 'publicationCommit': 'b' * 40}},
-                'sprig': {'result': 'success', 'outputs': {
+                ('sprig', '1.0.1'): {'result': 'success', 'outputs': {
                     'status': 'awaiting_takeover', 'package': 'sprig', 'version': '1.0.1', 'sourceCommit': sha}}}
         result = summarize(plan, jobs)
         self.assertEqual(result['status'], 'awaiting_publication')
-        self.assertEqual(result['packages']['swift-sdk']['status'], 'published')
-        self.assertEqual(result['packages']['sprig']['status'], 'awaiting_takeover')
+        self.assertEqual([(p['package'], p['status']) for p in result['packages']],
+                         [('swift-sdk', 'published'), ('sprig', 'awaiting_takeover')])
         workflow = (Path(__file__).resolve().parents[1] / '.github/workflows/publish.yml').read_text()
         self.assertIn("'awaiting_dependency', 'awaiting_takeover', 'abandoned'):", workflow)
 

@@ -10,13 +10,18 @@ from common import load, run
 WAITING = ('awaiting_review', 'awaiting_dependency', 'awaiting_takeover')
 
 
+def release_key(item):
+    """One package can have several versions in one run (e.g. a maintenance patch and a main patch)."""
+    return item['package'], item['version']
+
+
 def summarize(plan, jobs):
-    packages = {}
+    """`jobs` is keyed by release_key; `packages` lists one entry per planned package version."""
+    packages = []
     for item in plan:
-        key = item['package']
-        job = jobs.get(key, {})
+        job = jobs.get(release_key(item), {})
         outputs = job.get('outputs', {})
-        expected = {'package': key, 'version': item.get('version'), 'sourceCommit': item.get('sha')}
+        expected = {'package': item['package'], 'version': item.get('version'), 'sourceCommit': item.get('sha')}
         verified = (job.get('result') == 'success'
                     and outputs.get('status') == 'published'
                     and all(outputs.get(field) == value and value for field, value in expected.items())
@@ -26,13 +31,13 @@ def summarize(plan, jobs):
                    and outputs.get('status') in WAITING
                    and all(outputs.get(field) == value and value for field, value in expected.items()))
         state = 'published' if verified else outputs['status'] if waiting else 'incomplete'
-        packages[key] = {**expected, 'status': state,
+        packages.append({**expected, 'status': state,
                          'jobResult': job.get('result', 'missing'),
                          'pullRequest': outputs.get('pullRequest') if waiting else None,
-                         'publicationCommit': outputs.get('publicationCommit') if verified else None}
+                         'publicationCommit': outputs.get('publicationCommit') if verified else None})
     status = ('no_release' if not packages else
-              'incomplete' if any(p['status'] == 'incomplete' for p in packages.values()) else
-              'published' if all(p['status'] == 'published' for p in packages.values()) else 'awaiting_publication')
+              'incomplete' if any(p['status'] == 'incomplete' for p in packages) else
+              'published' if all(p['status'] == 'published' for p in packages) else 'awaiting_publication')
     return {'status': status, 'packages': packages,
             'note': 'Incomplete jobs may already have served a tag; inspect refs before retrying. '
                     'Source component releases are internal intent, not customer publication evidence.'}
@@ -46,8 +51,8 @@ def collect(plan, download):
         if folder is None:
             continue
         job, result = folder / 'publication-job.json', folder / 'publication-result.json'
-        jobs[item['package']] = {'result': load(job)['result'] if job.exists() else 'missing',
-                                 'outputs': load(result) if result.exists() else {}}
+        jobs[release_key(item)] = {'result': load(job)['result'] if job.exists() else 'missing',
+                                   'outputs': load(result) if result.exists() else {}}
     return jobs
 
 

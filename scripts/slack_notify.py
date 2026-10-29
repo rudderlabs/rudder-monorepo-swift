@@ -17,7 +17,7 @@ import tempfile
 import urllib.request
 
 from common import OWNER, ROOT, inventory, load, run, text
-from publication_status import collect, summarize
+from publication_status import collect, release_key, summarize
 
 FAILED = ('failure', 'cancelled', 'timed_out')
 
@@ -59,14 +59,14 @@ def release_message(package, version, customer, actor):
 
 
 def attention_items(plan, broken, pending_result, jobs, packages):
-    """(title, version, reason) for every item Tag & Release Packages left incomplete."""
+    """(title, version, reason) for every item Tag & Release Packages left incomplete. `jobs` is keyed by release_key."""
     items = []
     result = summarize([{'package': i['package'], 'version': i['version'], 'sha': i.get('source_sha', i.get('sha'))}
                         for i in plan], {k: v['job'] for k, v in jobs.items()})
-    for key, state in result['packages'].items():
+    for state in result['packages']:
         if state['status'] != 'incomplete':
             continue
-        found = jobs.get(key, {})
+        found = jobs.get(release_key(state), {})
         customer = found.get('customer', {})
         if customer.get('status') == 'failed':
             reason = 'customer install check failed'
@@ -74,6 +74,7 @@ def attention_items(plan, broken, pending_result, jobs, packages):
             reason = found['job']['outputs']['error']
         else:
             reason = 'publish job ' + state['jobResult']
+        key = state['package']
         items.append((packages.get(key, {}).get('title', key), state['version'], short(reason)))
     for item in broken:
         items.append((packages.get(item['package'], {}).get('title', item['package']), item['version'],
@@ -137,8 +138,8 @@ def download_jobs(plan, temp):
     for item in plan:
         folder = download(f"customer-{item['package']}-{item['version']}")
         if folder is not None and (folder / 'customer-result.json').exists():
-            jobs.setdefault(item['package'], {'job': {'result': 'missing', 'outputs': {}}})
-            jobs[item['package']]['customer'] = load(folder / 'customer-result.json')
+            jobs.setdefault(release_key(item), {'job': {'result': 'missing', 'outputs': {}}})
+            jobs[release_key(item)]['customer'] = load(folder / 'customer-result.json')
     return jobs
 
 

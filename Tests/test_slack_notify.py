@@ -76,7 +76,8 @@ class MessageTests(unittest.TestCase):
                                                       'tag': '2.0.1', 'sourceCommit': SHA, 'publicationCommit': 'b' * 40}}
         firebase_failed = {'result': 'failure', 'outputs': {**published['outputs'], 'package': 'firebase'}}
         packages = inventory()
-        jobs = {'sprig': {'job': published}, 'firebase': {'job': firebase_failed, 'customer': {'status': 'failed'}}}
+        jobs = {('sprig', '2.0.1'): {'job': published},
+                ('firebase', '2.0.1'): {'job': firebase_failed, 'customer': {'status': 'failed'}}}
         items = attention_items(plan, [], 'success', jobs, packages)
         self.assertEqual(items, [(packages['firebase']['title'], '2.0.1', 'customer install check failed')])
         message = attention_message(items)
@@ -84,10 +85,10 @@ class MessageTests(unittest.TestCase):
                                   f"• *{packages['firebase']['title']} 2.0.1* — incomplete (customer install check failed)\n\n"
                                   "Fix the cause, then run Tag & Release Packages again.")
         self.assertNotIn('/actions/runs/', message)
-        self.assertIsNone(attention_message(attention_items(plan[:1], [], 'success', {'sprig': {'job': published}},
+        self.assertIsNone(attention_message(attention_items(plan[:1], [], 'success', {('sprig', '2.0.1'): {'job': published}},
                                                             packages)))
         broken = [{'package': 'swift-sdk', 'version': '2.0.1', 'error': 'Publication repository contains\nmanual drift'}]
-        two = attention_items(plan[:1], broken, 'failure', {'sprig': {'job': published}}, packages)
+        two = attention_items(plan[:1], broken, 'failure', {('sprig', '2.0.1'): {'job': published}}, packages)
         self.assertEqual(two, [(packages['swift-sdk']['title'], '2.0.1', 'Publication repository contains manual drift')])
         self.assertIn('2 packages need attention', attention_message(two + items))
         self.assertEqual(attention_items([], [], 'failure', {}, packages),
@@ -95,6 +96,17 @@ class MessageTests(unittest.TestCase):
         self.assertEqual(attention_items([], [], 'success', {}, packages), [])
         missing = attention_items(plan[1:], [], 'success', {}, packages)
         self.assertEqual(missing, [(packages['firebase']['title'], '2.0.1', 'publish job missing')])
+
+    def test_attention_reports_a_failed_version_next_to_a_published_one(self):
+        # Two versions of one package in one Tag & Release run: the published one must not hide the failed one.
+        plan = [{'package': 'sprig', 'version': '2.0.2', 'source_sha': SHA},
+                {'package': 'sprig', 'version': '2.1.1', 'source_sha': SHA}]
+        outputs = {'status': 'published', 'package': 'sprig', 'sourceCommit': SHA, 'publicationCommit': 'b' * 40}
+        jobs = {('sprig', '2.0.2'): {'job': {'result': 'failure', 'outputs': {**outputs, 'version': '2.0.2', 'tag': '2.0.2'}}},
+                ('sprig', '2.1.1'): {'job': {'result': 'success', 'outputs': {**outputs, 'version': '2.1.1', 'tag': '2.1.1'}}}}
+        packages = inventory()
+        self.assertEqual(attention_items(plan, [], 'success', jobs, packages),
+                         [(packages['sprig']['title'], '2.0.2', 'publish job failure')])
 
     def test_texts_live_in_release_texts(self):
         texts = json.loads((ROOT / 'release/texts.json').read_text())

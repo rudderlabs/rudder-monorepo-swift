@@ -268,9 +268,9 @@ class PublicationStatusArtifactTests(unittest.TestCase):
                 write_json(Path(temp) / name / "publication-job.json", {"result": job})
             found = collect(plan, lambda name: Path(temp) / name if (Path(temp) / name).exists() else None)
         result = summarize(plan, found)
-        self.assertEqual({k: v["status"] for k, v in result["packages"].items()},
+        self.assertEqual({p["package"]: p["status"] for p in result["packages"]},
                          {"swift-sdk": "published", "zzz": "incomplete", "late": "incomplete"})
-        self.assertEqual(result["packages"]["late"]["jobResult"], "missing")
+        self.assertEqual(result["packages"][2]["jobResult"], "missing")
         self.assertEqual(result["status"], "incomplete")
 
 

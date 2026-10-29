@@ -285,6 +285,33 @@ class PreCommitTests(unittest.TestCase):
                                capture_output=True, text=True)
         self.assertEqual(check.returncode, 0, check.stderr)
 
+    def test_partially_staged_package_swift_is_refused(self):
+        # The sync reads the working tree: markers for unstaged content would break the commit's policy check.
+        path = self.root / "Package.swift"
+        path.write_text(path.read_text().replace('exact: "1.1.4"', 'exact: "1.1.5"'))
+        git(self.root, "add", "Package.swift")
+        path.write_text(path.read_text().replace('exact: "1.1.5"', 'exact: "1.1.6"'))
+        result = subprocess.run(["git", "commit", "-m", "fix(firebase): bump swift-collections to 1.1.5"],
+                                cwd=self.root, capture_output=True, text=True)
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("unstaged changes:\n    Package.swift\n", result.stdout + result.stderr)
+        self.assertEqual(git(self.root, "log", "-1", "--format=%s"), "chore: baseline")
+        self.assertNotIn("dependency-requirements.json", git(self.root, "status", "--porcelain"))
+
+    def test_already_synced_files_must_be_staged_too(self):
+        # After `make sync`, staging only Package.swift would leave the regenerated inventory and markers behind.
+        path = self.root / "Package.swift"
+        path.write_text(path.read_text().replace('exact: "1.1.4"', 'exact: "1.1.5"'))
+        subprocess.run([sys.executable, "scripts/dependency_policy.py", "sync"], cwd=self.root, check=True,
+                       capture_output=True)
+        result = self.commit("fix(firebase): bump swift-collections to 1.1.5", "Package.swift")
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("    Integrations/Firebase/dependency-requirements.json\n    release/packages.json\n", result.stdout + result.stderr)
+        result = self.commit("fix(firebase): bump swift-collections to 1.1.5", ".")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(self.committed(), ["Integrations/Firebase/dependency-requirements.json", "Package.swift",
+                                            "release/packages.json"])
+
     def test_shared_change_adds_shared_markers(self):
         path = self.root / "Shared/DemoShared/DemoNormalizer.swift"
         path.write_text(path.read_text() + "\n// shared change\n")

@@ -5,7 +5,8 @@
 # 1. When the commit stages Package.swift, release/packages.json,
 #    release/allowlist.json or Shared/**, runs the matching sync and
 #    stages the regenerated markers and generated files into the SAME
-#    commit (D15). Other commits run no sync.
+#    commit (D15). Other commits run no sync. It refuses first when those
+#    files (or the generated ones) have unstaged changes.
 # 2. Runs SwiftLint on staged Swift files (if SwiftLint is installed).
 #
 # NOTE: This hook intentionally does NOT use `set -e`.
@@ -36,9 +37,16 @@ staged() {
     git diff --cached --name-only --diff-filter=ACMRD -- "$@" | grep -q .
 }
 
+# What the syncs read, and what they write (release/packages.json is both).
+# The generated workflows are generate_github.py's DROPDOWNS.
+SYNC_INPUTS=(Package.swift release/packages.json release/allowlist.json Shared/)
+SYNC_OUTPUTS=(':(glob)**/dependency-requirements.json' ':(glob)**/shared-source.json' release/packages.json
+              .github/ISSUE_TEMPLATE/ .github/workflows/abandon-publication.yml .github/workflows/anchor-package.yml
+              .github/workflows/create-maintenance-branch.yml .github/workflows/publish.yml)
+
 # Files that differ from the index (modified or untracked), one per line.
-dirty() {
-    { git diff --name-only; git ls-files --others --exclude-standard; } | sort -u
+unstaged() {
+    { git diff --name-only -- "$@"; git ls-files --others --exclude-standard -- "$@"; } | sort -u
 }
 
 manifest=0; packages=0; allowlist=0; shared=0
@@ -48,7 +56,15 @@ staged release/allowlist.json && allowlist=1
 staged 'Shared/' && shared=1
 
 if [ $((manifest + packages + allowlist + shared)) -gt 0 ]; then
-    before=$(dirty)
+    # The syncs read the working tree, so it must match what is committed: otherwise the markers would
+    # describe unstaged content, or stale generated files would be left out of the commit.
+    pending=$(unstaged "${SYNC_INPUTS[@]}" "${SYNC_OUTPUTS[@]}")
+    if [ -n "$pending" ]; then
+        echo "[ERROR] These release files have unstaged changes:"
+        echo "$pending" | sed 's/^/    /'
+        echo "        Stage them (git add) or stash them, then commit again."
+        exit 1
+    fi
     SYNC_FAILED=0
     if [ $manifest -eq 1 ] || [ $packages -eq 1 ]; then
         echo "[INFO] Package.swift or release/packages.json is staged: syncing vendor metadata and markers..."
@@ -68,11 +84,8 @@ if [ $((manifest + packages + allowlist + shared)) -gt 0 ]; then
         exit 1
     fi
 
-    # Stage what the sync changed, plus marker and generated files that were
-    # already out of date in the working tree (for example after a manual `make sync`).
-    added=$( { comm -13 <(echo "$before") <(dirty)
-               dirty | grep -E '(^|/)(dependency-requirements|shared-source)\.json$|^\.github/ISSUE_TEMPLATE/'
-             } | grep . | sort -u)
+    # The outputs were clean before the sync, so whatever differs now is the sync's own change.
+    added=$(unstaged "${SYNC_OUTPUTS[@]}")
     if [ -n "$added" ]; then
         echo "$added" | tr '\n' '\0' | xargs -0 git add -A -- || exit 1
         echo "[SUCCESS] Added to this commit:"

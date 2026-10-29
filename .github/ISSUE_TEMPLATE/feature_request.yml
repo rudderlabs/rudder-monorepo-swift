@@ -8,6 +8,7 @@ body:
     attributes:
       label: "Package"
       options:
+        - "swift-sdk"
         - "Other / not sure"
     validations:
       required: true

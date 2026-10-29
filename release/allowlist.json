@@ -1,5 +1,7 @@
 {
   "owner": "rudderlabs",
-  "repositories": {},
+  "repositories": {
+    "swift-sdk": "rudder-sdk-swift"
+  },
   "schemaVersion": 1
 }

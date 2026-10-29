@@ -89,7 +89,7 @@ def describe(data, key, dest, sdk_target, sdk_repository):
         for dependency in entry["dependencies"]:
             if "product" in dependency:
                 product, package = dependency["product"][:2]
-                result.append(q(sdk_target) if package in sdk else f".product(name: {q(product)}, package: {q(package)})")
+                result.append(q(sdk_target) if package.lower() in sdk else f".product(name: {q(product)}, package: {q(package)})")
             else:
                 name = (dependency.get("target") or dependency.get("byName"))[0]
                 if name != target:

@@ -37,9 +37,12 @@ jobs:
           persist-credentials: false
       - name: Validate package, version, tag and branch (dry run)
         env:
+          GH_TOKEN: ${{ github.token }} # read-only: the dry run reads origin's branches
           PACKAGE: ${{ inputs.package }}
           VERSION: ${{ inputs.version }}
-        run: python3 scripts/maintenance_branch.py create "$PACKAGE" "$VERSION" --dry-run
+        run: |
+          gh auth setup-git
+          python3 scripts/maintenance_branch.py create "$PACKAGE" "$VERSION" --dry-run
       - uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1
         id: token
         with:

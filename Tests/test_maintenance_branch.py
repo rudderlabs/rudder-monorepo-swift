@@ -353,6 +353,9 @@ class WorkflowTests(unittest.TestCase):
             self.assertIn(f'      {name}:\n', text)
         self.assertIn("github.ref == 'refs/heads/main'", text)
         self.assertLess(text.index('--dry-run'), text.index('create-github-app-token'))
+        dry_run = text[text.index('(dry run)'):text.index('--dry-run')]
+        self.assertIn('GH_TOKEN: ${{ github.token }}', dry_run)  # origin is not readable anonymously
+        self.assertIn('gh auth setup-git', dry_run)
         self.assertIn('fetch-depth: 0', text)
         for forbidden in ('permission-workflows', 'permission-pull-requests', 'git push', 'release create'):
             self.assertNotIn(forbidden, text)

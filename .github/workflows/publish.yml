@@ -65,8 +65,9 @@ permissions:
   contents: read
 jobs:
   publish:
-    # main, or Release Please on a pushed maintenance branch release/<key>-X.Y.x (the script validates the line).
-    if: github.repository == 'rudderlabs/rudder-monorepo-swift' && vars.RELEASES_ENABLED == 'true' && (github.ref == 'refs/heads/main' || (github.event_name == 'push' && startsWith(github.ref, 'refs/heads/release/')))
+    # main, or Release Please (pushed or run by hand) on a maintenance branch release/<key>-X.Y.x (the script validates
+    # the line). A called workflow sees its caller's name in github.workflow; a direct run here is "Publish Package".
+    if: github.repository == 'rudderlabs/rudder-monorepo-swift' && vars.RELEASES_ENABLED == 'true' && (github.ref == 'refs/heads/main' || (github.workflow == 'Release Please' && startsWith(github.ref, 'refs/heads/release/')))
     outputs:
       status: ${{ steps.verified.outputs.status }}
       package: ${{ steps.verified.outputs.package }}

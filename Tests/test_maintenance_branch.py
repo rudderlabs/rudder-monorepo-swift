@@ -365,7 +365,10 @@ class WorkflowTests(unittest.TestCase):
         publish_yml = self.read('publish.yml')
         self.assertIn('from maintenance_branch import source_line', publish_yml)
         self.assertNotIn("'origin/main'", publish_yml)
-        self.assertIn("(github.event_name == 'push' && startsWith(github.ref, 'refs/heads/release/'))", publish_yml)
+        # Release Please on a maintenance branch, pushed or run by hand; never a direct Publish Package run there.
+        self.assertIn("(github.workflow == 'Release Please' && startsWith(github.ref, 'refs/heads/release/'))", publish_yml)
+        self.assertNotIn('github.event_name', publish_yml)
+        self.assertIn('name: Release Please\n', self.read('release-please.yml'))
         self.assertIn('fetch-depth: 0', self.read('abandon-publication.yml'))
         self.assertIn('fetch-depth: 0', self.read('complete-publication.yml'))
 

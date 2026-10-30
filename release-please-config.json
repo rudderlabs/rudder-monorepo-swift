@@ -73,6 +73,16 @@
           "path": "Sources/RudderStackAnalytics/Version.swift"
         }
       ]
+    },
+    "Integrations/Sprig": {
+      "component": "integration-sprig",
+      "package-name": "RudderIntegrationSprig",
+      "extra-files": [
+        {
+          "type": "generic",
+          "path": "Sources/RudderIntegrationSprig/Version.swift"
+        }
+      ]
     }
   }
 }

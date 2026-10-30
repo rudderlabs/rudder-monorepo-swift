@@ -1,5 +1,37 @@
 {
   "packages": {
+    "sprig": {
+      "component": "integration-sprig",
+      "path": "Integrations/Sprig",
+      "platforms": [
+        "iOS 15"
+      ],
+      "policies": {
+        "RudderStackAnalytics": {
+          "mode": "external",
+          "package": "swift-sdk"
+        }
+      },
+      "repository": "integration-swift-sprig",
+      "sdkMinimum": "2.0.0",
+      "target": "RudderIntegrationSprig",
+      "toolsVersion": "5.9",
+      "vendorProducts": [
+        "UserLeapKit"
+      ],
+      "vendors": [
+        {
+          "identity": "userleap-ios-sdk-releases",
+          "product": "UserLeapKit",
+          "requirement": {
+            "kind": "upToNextMajor",
+            "lower": "4.29.0",
+            "upper": "5.0.0"
+          },
+          "url": "https://github.com/UserLeap/userleap-ios-sdk-releases"
+        }
+      ]
+    },
     "swift-sdk": {
       "component": "swift-sdk",
       "path": "Packages/RudderStackAnalytics",

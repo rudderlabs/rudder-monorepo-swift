@@ -1,7 +1,8 @@
 {
   "owner": "rudderlabs",
   "repositories": {
-    "swift-sdk": "rudder-sdk-swift"
+    "swift-sdk": "rudder-sdk-swift",
+    "sprig": "integration-swift-sprig"
   },
   "schemaVersion": 1
 }

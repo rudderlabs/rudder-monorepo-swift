@@ -246,7 +246,9 @@ class ImportTests(unittest.TestCase):
         self.assertEqual((path / "version.txt").read_text(), "1.0.0\n")
         self.assertIn('static let current = "1.0.0" // x-release-please-version',
                       (path / "Sources/RudderIntegrationSprig/Version.swift").read_text())
-        self.assertIn("integration-swift-sprig/releases", (path / "CHANGELOG.md").read_text())
+        self.assertEqual((path / "CHANGELOG.md").read_text(),
+                         "# Changelog\n\n## 1.0.0 and earlier\n\nReleases up to 1.0.0 are listed at "
+                         "https://github.com/rudderlabs/integration-swift-sprig/releases.\n")
         entry = inventory(root)["sprig"]
         self.assertEqual({k: entry[k] for k in ("component", "platforms", "toolsVersion", "sdkMinimum", "policies",
                                                 "vendorProducts")},

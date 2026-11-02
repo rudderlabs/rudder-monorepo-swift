@@ -282,7 +282,10 @@ def import_package(repo, tag, name, mode, root=ROOT, kind="integration", ref=Non
         (package / version).write_text(version_swift(entry["target"], tag))
     (package / "version.txt").write_text(tag + "\n")
     releases = f"https://github.com/{OWNER}/{repository}/releases"
-    for file, text in (("CHANGELOG.md", f"# Changelog\n\nReleases up to {tag} are listed at {releases}.\n"),
+    # A version heading: Release Please adds new entries above it (without one it adds a second title),
+    # and it ends the previous version's section in the release notes.
+    changelog = f"# Changelog\n\n## {tag} and earlier\n\nReleases up to {tag} are listed at {releases}.\n"
+    for file, text in (("CHANGELOG.md", changelog),
                        ("README.md", f"# {entry['target']}\n\nImported from {repository} {tag}.\n")):
         if not (package / file).exists():
             (package / file).write_text(text)

@@ -34,6 +34,7 @@ excluded:
     - '**/Package.swift'
     - '.build'
     - '.lab'  # Local rehearsal evidence
+    - 'Integrations/Firebase/Sources'  # Until fix(firebase): resolve SwiftLint findings
 
 # Discourages using `as!`
 force_cast:

@@ -17,6 +17,8 @@ import RudderStackAnalytics
 
  ## Usage in Objective-C:
  ```objc
+ [FIRApp configure]; // Set up Firebase before you add the integration
+
  RSSConfigurationBuilder *builder = [[RSSConfigurationBuilder alloc] initWithWriteKey:@"<WriteKey>"
                                                           dataPlaneUrl:@"<DataPlaneUrl>"];
  RSSAnalytics *analytics = [[RSSAnalytics alloc] initWithConfiguration:[builder build]];
@@ -72,7 +74,8 @@ public class ObjCFirebaseIntegration: NSObject, ObjCIntegrationPlugin, ObjCStand
     }
 
     /**
-     Creates and configures the Firebase SDK with the provided destination configuration.
+     Uses the Firebase app that your app configured. If Firebase is not configured yet, it calls
+     `[FIRApp configure]`; this is kept only so that older apps keep working.
 
      - Parameters:
         - destinationConfig: Configuration dictionary from RudderStack dashboard.

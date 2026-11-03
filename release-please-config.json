@@ -83,6 +83,16 @@
           "path": "Sources/RudderIntegrationSprig/Version.swift"
         }
       ]
+    },
+    "Integrations/Firebase": {
+      "component": "integration-firebase",
+      "package-name": "RudderIntegrationFirebase",
+      "extra-files": [
+        {
+          "type": "generic",
+          "path": "Sources/RudderIntegrationFirebase/Version.swift"
+        }
+      ]
     }
   }
 }

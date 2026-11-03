@@ -181,20 +181,20 @@ extension FirebaseIntegration {
         var params = [String: Any]()
         
         guard let properties else {
-            makeFirebaseEvent(firebaseEvent: firebaseEvent, params: params, properties: properties, isECommerceEvent: true)
+            makeFirebaseEvent(firebaseEvent: firebaseEvent, properties: properties, isECommerceEvent: true, params: params)
             return
         }
 
         // Handle special parameter mappings for specific events
-        params = params + handleSpecialECommerceParams(firebaseEvent: firebaseEvent, properties: properties)
+        params.merge(handleSpecialECommerceParams(firebaseEvent: firebaseEvent, properties: properties)) { _, new in new }
 
         // Add constant parameters for specific events
-        params = params + addConstantParamsForECommerceEvent(eventName: eventName)
+        params.merge(addConstantParamsForECommerceEvent(eventName: eventName)) { _, new in new }
 
         // Handle ecommerce-specific properties (revenue, products, currency, etc.)
-        params = params + handleECommerceEventProperties(properties: properties, firebaseEvent: firebaseEvent)
+        params.merge(handleECommerceEventProperties(properties: properties, firebaseEvent: firebaseEvent)) { _, new in new }
 
-        makeFirebaseEvent(firebaseEvent: firebaseEvent, params: params, properties: properties, isECommerceEvent: true)
+        makeFirebaseEvent(firebaseEvent: firebaseEvent, properties: properties, isECommerceEvent: true, params: params)
     }
 
     /**
@@ -208,7 +208,7 @@ extension FirebaseIntegration {
     /**
      * Makes Firebase event with parameters
      */
-    private func makeFirebaseEvent(firebaseEvent: String, params: [String: Any] = [:], properties: [String: Any]?, isECommerceEvent: Bool) {
+    private func makeFirebaseEvent(firebaseEvent: String, properties: [String: Any]?, isECommerceEvent: Bool, params: [String: Any] = [:]) {
         let customParams = attachAllCustomProperties(properties: properties, isECommerceEvent: isECommerceEvent)
         LoggerAnalytics.debug("FirebaseIntegration: Logged \"\(firebaseEvent)\" to Firebase with properties: \(properties ?? [:])")
         self.analyticsAdapter.logEvent(firebaseEvent, parameters: customParams + params)
@@ -266,22 +266,30 @@ extension FirebaseIntegration {
     }
 
     /**
+     * The first numeric value of revenue, value or total, in that order
+     */
+    private func eventValue(from properties: [String: Any]) -> Double? {
+        for key in ["revenue", "value", "total"] {
+            if let value = properties[key], FirebaseUtils.isNumber(value) {
+                return FirebaseUtils.doubleValue(value)
+            }
+        }
+        return nil
+    }
+
+    /**
      * Handles ecommerce-specific properties like revenue, products, currency
      */
     private func handleECommerceEventProperties(properties: [String: Any], firebaseEvent: String) -> [String: Any] {
         var params = [String: Any]()
 
         // Handle revenue/value mapping
-        if let revenue = properties["revenue"], FirebaseUtils.isNumber(revenue) {
-            params[AnalyticsParameterValue] = FirebaseUtils.doubleValue(revenue)
-        } else if let value = properties["value"], FirebaseUtils.isNumber(value) {
-            params[AnalyticsParameterValue] = FirebaseUtils.doubleValue(value)
-        } else if let total = properties["total"], FirebaseUtils.isNumber(total) {
-            params[AnalyticsParameterValue] = FirebaseUtils.doubleValue(total)
+        if let value = eventValue(from: properties) {
+            params[AnalyticsParameterValue] = value
         }
 
         // Handle products array or root-level products
-        if FirebaseUtils.eventWithProductsArray.contains(firebaseEvent), let _ = properties["products"] {
+        if FirebaseUtils.eventWithProductsArray.contains(firebaseEvent), properties["products"] != nil {
             handleProducts(params: &params, properties: properties, isProductsArray: true)
         }
 

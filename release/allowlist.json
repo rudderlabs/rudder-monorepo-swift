@@ -3,7 +3,8 @@
   "repositories": {
     "swift-sdk": "rudder-sdk-swift",
     "sprig": "integration-swift-sprig",
-    "firebase": "integration-swift-firebase"
+    "firebase": "integration-swift-firebase",
+    "adjust": "integration-swift-adjust"
   },
   "schemaVersion": 1
 }

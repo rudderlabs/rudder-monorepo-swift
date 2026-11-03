@@ -93,6 +93,16 @@
           "path": "Sources/RudderIntegrationFirebase/Version.swift"
         }
       ]
+    },
+    "Integrations/Adjust": {
+      "component": "integration-adjust",
+      "package-name": "RudderIntegrationAdjust",
+      "extra-files": [
+        {
+          "type": "generic",
+          "path": "Sources/RudderIntegrationAdjust/Version.swift"
+        }
+      ]
     }
   }
 }

@@ -11,6 +11,7 @@ body:
         - "swift-sdk"
         - "sprig"
         - "firebase"
+        - "adjust"
         - "Other / not sure"
     validations:
       required: true

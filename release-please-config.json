@@ -113,6 +113,16 @@
           "path": "Sources/RudderIntegrationFacebook/Version.swift"
         }
       ]
+    },
+    "Integrations/AppsFlyer": {
+      "component": "integration-appsflyer",
+      "package-name": "RudderIntegrationAppsFlyer",
+      "extra-files": [
+        {
+          "type": "generic",
+          "path": "Sources/RudderIntegrationAppsFlyer/Version.swift"
+        }
+      ]
     }
   }
 }

@@ -3,5 +3,6 @@
   "Integrations/Sprig": "2.0.1",
   "Integrations/Firebase": "2.0.1",
   "Integrations/Adjust": "2.0.1",
-  "Integrations/Facebook": "2.0.1"
+  "Integrations/Facebook": "2.0.1",
+  "Integrations/AppsFlyer": "3.0.0"
 }

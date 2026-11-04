@@ -155,10 +155,14 @@ public class AdjustIntegration: NSObject, IntegrationPlugin, StandardIntegration
 }
 
 // MARK: - AdjustDelegate
-/**
- Attribution callback from Adjust SDK
- */
 extension AdjustIntegration {
+    /**
+     Attribution callback from the Adjust SDK.
+
+     When install attribution tracking is on, the integration tracks an "Install Attributed" event with the attribution.
+
+     - Parameter attribution: The attribution from the Adjust SDK; `nil` is ignored.
+     */
     public func adjustAttributionChanged(_ attribution: ADJAttribution?) {
         guard let attribution else { return }
         
@@ -210,9 +214,9 @@ extension AdjustIntegration {
             .compactMap { mapping -> (String, String)? in
                 guard
                     let from = mapping["from"] as? String,
-                    let to = mapping["to"] as? String
+                    let token = mapping["to"] as? String
                 else { return nil }
-                return (from, to)
+                return (from, token)
             }
             .reduce(into: [:]) { $0[$1.0] = $1.1 }
     }

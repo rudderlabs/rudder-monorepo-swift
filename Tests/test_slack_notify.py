@@ -41,13 +41,18 @@ def event(title='fix(sprig): handle missing survey id'):
 class MessageTests(unittest.TestCase):
     def test_release_message(self):
         sprig = inventory()['sprig']
-        message = release_message(sprig, '2.0.1', {'status': 'passed', 'platforms': ['iOS']}, 'SKannaniOS')
+        message = release_message('sprig', sprig, '2.0.1', {'status': 'passed', 'platforms': ['iOS']}, 'SKannaniOS')
         repository = 'rudderlabs/' + sprig['repository']
         self.assertEqual(message, f"🚀 *{sprig['title']} 2.0.1* released\n\n*Repository:* {repository}\n*Tag:* 2.0.1\n"
                                   "*Customer install check:* passed ✅ (iOS)\n*Released by:* SKannaniOS\n\n"
                                   f"<https://github.com/{repository}/releases/tag/2.0.1|View Release>")
-        two = release_message(inventory()['firebase'], '2.0.1', {'platforms': ['iOS', 'macOS']}, 'x')
+        two = release_message('firebase', inventory()['firebase'], '2.0.1', {'platforms': ['iOS', 'macOS']}, 'x')
         self.assertIn('passed ✅ (iOS, macOS)', two)
+
+    def test_release_message_without_title_uses_the_target(self):
+        package = {key: value for key, value in inventory()['sprig'].items() if key != 'title'}
+        message = release_message('sprig', package, '2.0.1', {'platforms': ['iOS']}, 'x')
+        self.assertTrue(message.startswith(f"🚀 *{package['target']} 2.0.1* released"))
 
     def test_pr_message_passed_and_failed_without_run_links(self):
         passed = pr_message(event(), [])

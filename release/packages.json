@@ -37,8 +37,7 @@
       "component": "integration-facebook",
       "path": "Integrations/Facebook",
       "platforms": [
-        "iOS 15",
-        "tvOS 15"
+        "iOS 15"
       ],
       "policies": {
         "RudderStackAnalytics": {

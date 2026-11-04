@@ -5,7 +5,8 @@
     "sprig": "integration-swift-sprig",
     "firebase": "integration-swift-firebase",
     "adjust": "integration-swift-adjust",
-    "facebook": "integration-swift-facebook"
+    "facebook": "integration-swift-facebook",
+    "appsflyer": "integration-swift-appsflyer"
   },
   "schemaVersion": 1
 }

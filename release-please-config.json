@@ -103,6 +103,16 @@
           "path": "Sources/RudderIntegrationAdjust/Version.swift"
         }
       ]
+    },
+    "Integrations/Facebook": {
+      "component": "integration-facebook",
+      "package-name": "RudderIntegrationFacebook",
+      "extra-files": [
+        {
+          "type": "generic",
+          "path": "Sources/RudderIntegrationFacebook/Version.swift"
+        }
+      ]
     }
   }
 }

@@ -12,6 +12,7 @@ body:
         - "sprig"
         - "firebase"
         - "adjust"
+        - "facebook"
         - "Other / not sure"
     validations:
       required: true

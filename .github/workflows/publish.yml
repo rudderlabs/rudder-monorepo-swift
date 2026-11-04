@@ -11,6 +11,7 @@ on:
           - sprig
           - firebase
           - adjust
+          - facebook
       version:
         description: Released version to publish, e.g. 1.4.2
         type: string

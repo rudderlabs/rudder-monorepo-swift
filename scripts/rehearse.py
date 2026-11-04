@@ -33,7 +33,7 @@ from reviewed_publication import BOT, WORKFLOWS
 import verify_public_customer
 
 FIXTURE = ROOT / 'Tests/Fixtures/demo'
-NAMES = allowlist()
+NAMES = allowlist(FIXTURE)  # the packages the fixture models
 SOURCE = f'{OWNER}/{SOURCE_NAME}'
 COLLECTIONS = 'https://github.com/apple/swift-collections.git'
 BOT_EMAIL = '12345678+rudderstack-github-actions[bot]@users.noreply.github.com'  # modeled App bot user id

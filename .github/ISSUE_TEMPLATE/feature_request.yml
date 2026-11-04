@@ -13,6 +13,7 @@ body:
         - "firebase"
         - "adjust"
         - "facebook"
+        - "appsflyer"
         - "Other / not sure"
     validations:
       required: true

@@ -14,6 +14,7 @@ let package = Package(
         .library(name: "RudderIntegrationFirebase", targets: ["RudderIntegrationFirebase"]),
         .library(name: "RudderIntegrationAdjust", targets: ["RudderIntegrationAdjust"]),
         .library(name: "RudderIntegrationFacebook", targets: ["RudderIntegrationFacebook"]),
+        .library(name: "RudderIntegrationAppsFlyer", targets: ["RudderIntegrationAppsFlyer"]),
     ],
     dependencies: [
         // @integrations-dependencies
@@ -21,6 +22,7 @@ let package = Package(
         .package(url: "https://github.com/firebase/firebase-ios-sdk", .upToNextMajor(from: "12.5.0")),
         .package(url: "https://github.com/adjust/ios_sdk", .upToNextMajor(from: "5.4.6")),
         .package(url: "https://github.com/facebook/facebook-ios-sdk", .upToNextMajor(from: "18.0.0")),
+        .package(url: "https://github.com/AppsFlyerSDK/AppsFlyerFramework-Static", .upToNextMajor(from: "7.0.1")),
     ],
     targets: [
         .target(name: "RudderStackAnalytics",
@@ -57,5 +59,11 @@ let package = Package(
         .testTarget(name: "RudderIntegrationFacebookTests",
                     dependencies: ["RudderIntegrationFacebook"],
                     path: "Integrations/Facebook/Tests/RudderIntegrationFacebookTests"),
+        .target(name: "RudderIntegrationAppsFlyer",
+                dependencies: [.product(name: "AppsFlyerLib-Static", package: "AppsFlyerFramework-Static"), "RudderStackAnalytics"],
+                path: "Integrations/AppsFlyer/Sources/RudderIntegrationAppsFlyer"),
+        .testTarget(name: "RudderIntegrationAppsFlyerTests",
+                    dependencies: ["RudderIntegrationAppsFlyer"],
+                    path: "Integrations/AppsFlyer/Tests/RudderIntegrationAppsFlyerTests"),
     ]
 )

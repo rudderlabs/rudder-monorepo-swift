@@ -12,6 +12,7 @@ on:
           - firebase
           - adjust
           - facebook
+          - appsflyer
       version:
         description: Released version to publish, e.g. 1.4.2
         type: string

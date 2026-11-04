@@ -33,6 +33,39 @@
         }
       ]
     },
+    "facebook": {
+      "component": "integration-facebook",
+      "path": "Integrations/Facebook",
+      "platforms": [
+        "iOS 15",
+        "tvOS 15"
+      ],
+      "policies": {
+        "RudderStackAnalytics": {
+          "mode": "external",
+          "package": "swift-sdk"
+        }
+      },
+      "repository": "integration-swift-facebook",
+      "sdkMinimum": "2.0.0",
+      "target": "RudderIntegrationFacebook",
+      "toolsVersion": "5.9",
+      "vendorProducts": [
+        "FacebookCore"
+      ],
+      "vendors": [
+        {
+          "identity": "facebook-ios-sdk",
+          "product": "FacebookCore",
+          "requirement": {
+            "kind": "upToNextMajor",
+            "lower": "18.0.0",
+            "upper": "19.0.0"
+          },
+          "url": "https://github.com/facebook/facebook-ios-sdk"
+        }
+      ]
+    },
     "firebase": {
       "component": "integration-firebase",
       "path": "Integrations/Firebase",

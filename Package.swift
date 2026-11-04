@@ -13,12 +13,14 @@ let package = Package(
         .library(name: "RudderIntegrationSprig", targets: ["RudderIntegrationSprig"]),
         .library(name: "RudderIntegrationFirebase", targets: ["RudderIntegrationFirebase"]),
         .library(name: "RudderIntegrationAdjust", targets: ["RudderIntegrationAdjust"]),
+        .library(name: "RudderIntegrationFacebook", targets: ["RudderIntegrationFacebook"]),
     ],
     dependencies: [
         // @integrations-dependencies
         .package(url: "https://github.com/UserLeap/userleap-ios-sdk-releases", .upToNextMajor(from: "4.29.0")),
         .package(url: "https://github.com/firebase/firebase-ios-sdk", .upToNextMajor(from: "12.5.0")),
         .package(url: "https://github.com/adjust/ios_sdk", .upToNextMajor(from: "5.4.6")),
+        .package(url: "https://github.com/facebook/facebook-ios-sdk", .upToNextMajor(from: "18.0.0")),
     ],
     targets: [
         .target(name: "RudderStackAnalytics",
@@ -49,5 +51,11 @@ let package = Package(
         .testTarget(name: "RudderIntegrationAdjustTests",
                     dependencies: ["RudderIntegrationAdjust"],
                     path: "Integrations/Adjust/Tests/RudderIntegrationAdjustTests"),
+        .target(name: "RudderIntegrationFacebook",
+                dependencies: [.product(name: "FacebookCore", package: "facebook-ios-sdk"), "RudderStackAnalytics"],
+                path: "Integrations/Facebook/Sources/RudderIntegrationFacebook"),
+        .testTarget(name: "RudderIntegrationFacebookTests",
+                    dependencies: ["RudderIntegrationFacebook"],
+                    path: "Integrations/Facebook/Tests/RudderIntegrationFacebookTests"),
     ]
 )

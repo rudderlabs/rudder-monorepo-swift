@@ -15,6 +15,7 @@ on:
           - firebase
           - adjust
           - facebook
+          - appsflyer
       version:
         description: Latest released version of the line you want to patch, e.g. 1.4.2
         type: string

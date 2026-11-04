@@ -33,6 +33,41 @@
         }
       ]
     },
+    "appsflyer": {
+      "component": "integration-appsflyer",
+      "path": "Integrations/AppsFlyer",
+      "platforms": [
+        "iOS 15",
+        "macOS 12",
+        "tvOS 15",
+        "watchOS 8"
+      ],
+      "policies": {
+        "RudderStackAnalytics": {
+          "mode": "external",
+          "package": "swift-sdk"
+        }
+      },
+      "repository": "integration-swift-appsflyer",
+      "sdkMinimum": "2.0.0",
+      "target": "RudderIntegrationAppsFlyer",
+      "toolsVersion": "5.9",
+      "vendorProducts": [
+        "AppsFlyerLib-Static"
+      ],
+      "vendors": [
+        {
+          "identity": "appsflyerframework-static",
+          "product": "AppsFlyerLib-Static",
+          "requirement": {
+            "kind": "upToNextMajor",
+            "lower": "7.0.1",
+            "upper": "8.0.0"
+          },
+          "url": "https://github.com/AppsFlyerSDK/AppsFlyerFramework-Static"
+        }
+      ]
+    },
     "facebook": {
       "component": "integration-facebook",
       "path": "Integrations/Facebook",

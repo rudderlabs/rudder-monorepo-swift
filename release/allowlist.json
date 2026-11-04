@@ -4,7 +4,8 @@
     "swift-sdk": "rudder-sdk-swift",
     "sprig": "integration-swift-sprig",
     "firebase": "integration-swift-firebase",
-    "adjust": "integration-swift-adjust"
+    "adjust": "integration-swift-adjust",
+    "facebook": "integration-swift-facebook"
   },
   "schemaVersion": 1
 }

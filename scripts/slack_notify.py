@@ -18,6 +18,7 @@ import urllib.request
 
 from common import OWNER, ROOT, inventory, load, run, text
 from publication_status import collect, release_key, summarize
+from release_notes import display_name
 
 FAILED = ('failure', 'cancelled', 'timed_out')
 
@@ -50,10 +51,10 @@ def post(message, webhook=None, opener=urllib.request.urlopen):
     return False
 
 
-def release_message(package, version, customer, actor):
-    """`package` is the inventory entry; `customer` is customer-result.json of the passed install check."""
+def release_message(key, package, version, customer, actor):
+    """`package` is the inventory entry of `key`; `customer` is customer-result.json of the passed install check."""
     repository = f"{OWNER}/{package['repository']}"
-    return text('slackRelease', title=package['title'], version=version, repository=repository,
+    return text('slackRelease', title=display_name(key, package), version=version, repository=repository,
                 platforms=', '.join(customer.get('platforms', [])) or 'none', actor=actor,
                 url=f'https://github.com/{repository}/releases/tag/{version}')
 
@@ -75,9 +76,9 @@ def attention_items(plan, broken, pending_result, jobs, packages):
         else:
             reason = 'publish job ' + state['jobResult']
         key = state['package']
-        items.append((packages.get(key, {}).get('title', key), state['version'], short(reason)))
+        items.append((display_name(key, packages.get(key)), state['version'], short(reason)))
     for item in broken:
-        items.append((packages.get(item['package'], {}).get('title', item['package']), item['version'],
+        items.append((display_name(item['package'], packages.get(item['package'])), item['version'],
                       short(item.get('error') or item.get('status', 'incomplete'))))
     if pending_result in FAILED and not items:
         items.append(('Tag & Release Packages', 'queue', 'the queue check failed'))
@@ -160,7 +161,7 @@ def main(argv=None):
     args = parser.parse_args(argv)
     try:
         if args.command == 'release':
-            message = release_message(inventory(args.source_root)[args.package], args.version,
+            message = release_message(args.package, inventory(args.source_root)[args.package], args.version,
                                       load(args.customer_result), args.actor)
         elif args.command == 'attention':
             plan = json.loads(args.plan or '{}').get('include', [])

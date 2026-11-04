@@ -65,6 +65,7 @@ jobs:
       source_sha: ${{ fromJSON(needs.intent.outputs.sdk).sha }}
     secrets:
       RELEASE_PRIVATE_KEY: ${{ secrets.RELEASE_PRIVATE_KEY }}
+      SLACK_RELEASE_WEBHOOK_URL: ${{ secrets.SLACK_RELEASE_WEBHOOK_URL }}
   # One leg per released integration, after the SDK job. publish.yml holds the per-package concurrency group.
   integrations:
     name: publish (${{ matrix.package }})
@@ -81,6 +82,7 @@ jobs:
       source_sha: ${{ matrix.sha }}
     secrets:
       RELEASE_PRIVATE_KEY: ${{ secrets.RELEASE_PRIVATE_KEY }}
+      SLACK_RELEASE_WEBHOOK_URL: ${{ secrets.SLACK_RELEASE_WEBHOOK_URL }}
   publication-status:
     needs: [intent, sdk, integrations]
     if: always() && needs.intent.result == 'success'

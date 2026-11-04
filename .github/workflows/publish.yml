@@ -33,7 +33,8 @@ on:
         description: Private key for the existing publication GitHub App
         required: true
       SLACK_RELEASE_WEBHOOK_URL:
-        # Read from the spm-release environment (the publish job's environment); callers need not pass it.
+        # Callers must pass it by name; the spm-release environment's value (the publish job's environment) takes
+        # precedence. A secret the caller does not pass is an empty string here.
         description: Slack webhook for release messages
         required: false
     inputs:

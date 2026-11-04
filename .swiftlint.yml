@@ -34,7 +34,6 @@ excluded:
     - '**/Package.swift'
     - '.build'
     - '.lab'  # Local rehearsal evidence
-    - 'Integrations/Facebook/Sources'  # Until fix(facebook): resolve SwiftLint findings
 
 # Discourages using `as!`
 force_cast:

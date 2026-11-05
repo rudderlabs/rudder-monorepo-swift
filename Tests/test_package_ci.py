@@ -20,13 +20,14 @@ os.environ["GIT_CONFIG_NOSYSTEM"] = "1"
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 import inventory_fixture  # noqa: F401,E402  (default package list for tests)
-from common import ROOT
+from common import ROOT, load, write_json
 from package_ci import (failed_needs, failures, main, manifest_problems, matrix, scope_warnings, test_command, test_scheme,
-                        test_targets)
+                        test_targets, xcode_env)
 
 FIXTURE = ROOT / "Tests/Fixtures/demo"
 PICK = ROOT / "scripts/ci/pick-simulator.sh"
 WORKFLOW = (ROOT / ".github/workflows/ci.yml").read_text()
+PUBLISH = (ROOT / ".github/workflows/publish.yml").read_text()
 
 
 def device(name, udid, available=True):
@@ -203,6 +204,47 @@ class ExportManifestTests(unittest.TestCase):
         self.assertIn("platforms", problems)
         self.assertIn("non-Git package dependency", problems)
         self.assertIn("one per vendor/SDK", problems)
+
+
+class XcodeTests(unittest.TestCase):
+    """`xcode` in a package entry selects that Xcode for its CI jobs and release builds (DEVELOPER_DIR)."""
+    def setUp(self):
+        temp = tempfile.TemporaryDirectory()
+        self.addCleanup(temp.cleanup)
+        self.root = Path(temp.name) / "source"
+        shutil.copytree(FIXTURE / "release", self.root / "release")
+        self.apps = Path(temp.name) / "Applications"
+        path = self.root / "release/packages.json"
+        data = load(path)
+        data["packages"]["firebase"]["xcode"] = "26.2"
+        write_json(path, data)
+
+    def env(self, key):
+        with patch("package_ci.DEVELOPER_DIR", str(self.apps / "Xcode_{}.app/Contents/Developer")), \
+                contextlib.redirect_stderr(io.StringIO()):
+            return xcode_env(key, self.root)
+
+    def test_package_without_xcode_keeps_the_runner_default(self):
+        self.assertEqual(self.env("sprig"), "")
+
+    def test_package_with_xcode_gets_its_developer_dir(self):
+        developer = self.apps / "Xcode_26.2.app/Contents/Developer"
+        developer.mkdir(parents=True)
+        self.assertEqual(self.env("firebase"), f"DEVELOPER_DIR={developer}")
+
+    def test_missing_xcode_or_unknown_package_fails(self):
+        with self.assertRaisesRegex(ValueError, "firebase: Xcode 26.2 is not installed at "):
+            self.env("firebase")
+        with self.assertRaisesRegex(ValueError, "Unknown package: zzz"):
+            self.env("zzz")
+
+    def test_package_jobs_and_the_publication_select_the_xcode_before_building(self):
+        step = 'python3 scripts/package_ci.py xcode --package "$PACKAGE"'
+        for job, build in (("test", "package_ci.py test "), ("export", "package_ci.py export-check ")):
+            text = WORKFLOW.split(f"\n  {job}:\n", 1)[1].split("\n  ci-ok:\n" if job == "export" else "\n  export:\n", 1)[0]
+            self.assertLess(text.index(step + ' >> "$GITHUB_ENV"'), text.index(build), job)
+        self.assertLess(PUBLISH.index(step + ' --root .lab/release-source >> "$GITHUB_ENV"'),
+                        PUBLISH.index("python3 scripts/publish.py"))
 
 
 class ScopeHintTests(unittest.TestCase):

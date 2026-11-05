@@ -1,4 +1,4 @@
-"""PR CI and developer commands for the packages: iOS Simulator tests, export check, lint, hints, ci-ok.
+"""PR CI and developer commands for the packages: iOS Simulator tests, export check, Xcode choice, lint, hints, ci-ok.
 
 `make test`, `make lint` and the ci.yml jobs call this file, so local runs and CI run the same commands.
 The CI plan (which packages those jobs check) is ci_plan.py. Do not import it here: every script this file imports
@@ -24,6 +24,8 @@ TITLE = re.compile(rf"(?:{TYPES})\((?P<scope>[^)]*)\)!?: ")
 PICK_SIMULATOR = ROOT / "scripts/ci/pick-simulator.sh"
 # Per-package test scheme, written for each `test (<key>)` run and removed after it (test_scheme).
 SCHEME = "package-ci-{}"
+# Where the GitHub macOS runner images install each Xcode.
+DEVELOPER_DIR = "/Applications/Xcode_{}.app/Contents/Developer"
 
 
 def matrix(root=ROOT):
@@ -181,6 +183,23 @@ def export_check(key, root=ROOT):
         print(f"export ({key}): generic iOS build passed")
 
 
+def xcode_env(key, root=ROOT):
+    """`DEVELOPER_DIR=<path>` for $GITHUB_ENV when the package sets `xcode` in release/packages.json, else "".
+    Packages without it build with the runner's default Xcode, the oldest one the monorepo supports."""
+    packages = inventory(root)
+    if key not in packages:
+        raise ValueError(f"Unknown package: {key} (known: {', '.join(packages) or 'none'})")
+    version = packages[key].get("xcode")
+    if not version:
+        print(f"xcode ({key}): runner default", file=sys.stderr)
+        return ""
+    path = DEVELOPER_DIR.format(version)
+    if not Path(path).is_dir():
+        raise ValueError(f"{key}: Xcode {version} is not installed at {path}")
+    print(f"xcode ({key}): {path}", file=sys.stderr)
+    return f"DEVELOPER_DIR={path}"
+
+
 def lint(paths=None, root=ROOT, strict=False, reporter=None):
     """SwiftLint with the root .swiftlint.yml; `paths=None` lints the repository. Nothing to lint is a pass."""
     if paths is not None and not paths:
@@ -236,6 +255,9 @@ def main(argv=None):
     command.add_argument("--package", action="append")
     commands.add_parser("export-check", help="export, manifest check and iOS build").add_argument(
         "--package", required=True)
+    command = commands.add_parser("xcode", help="DEVELOPER_DIR line for $GITHUB_ENV (empty: runner default)")
+    command.add_argument("--package", required=True)
+    command.add_argument("--root", type=Path, default=ROOT)
     command = commands.add_parser("lint", help="SwiftLint on changed files, or --all")
     command.add_argument("--base", default="origin/main")
     command.add_argument("--all", action="store_true")
@@ -253,6 +275,10 @@ def main(argv=None):
         test(args.package)
     elif args.command == "export-check":
         export_check(args.package)
+    elif args.command == "xcode":
+        line = xcode_env(args.package, args.root)
+        if line:
+            print(line)
     elif args.command == "lint":
         return lint(None if args.all else changed_swift(args.base), strict=args.strict, reporter=args.reporter)
     elif args.command == "scope-hint":

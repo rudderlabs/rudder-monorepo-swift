@@ -136,9 +136,10 @@ nested trait.
 
 ### Revenue
 
-CleverTap needs a number for the `Amount` attribute. When `revenue` is not a number, the
+CleverTap needs a number for the `Amount` attribute. When `revenue` is not a finite number, the
 integration drops the amount and logs a warning. It keeps the other charge details. A numeric
-string such as `"123.45"` is valid, and CleverTap receives it as a number.
+string such as `"123.45"` is valid, and CleverTap receives it as a number. `NaN` and infinite
+values, as numbers or as strings such as `"inf"`, are not valid.
 
 ### Nested values
 

@@ -189,6 +189,28 @@ struct CleverTapUtilsTests {
         #expect(result.invalidRevenue as? String == "not-a-number")
     }
 
+    @Test("given a non finite string revenue, when buildChargedEvent is called, then the amount is dropped",
+          arguments: ["NaN", "nan", "inf", "-Infinity", "1e999"])
+    func testChargedEventNonFiniteStringRevenue(revenue: String) {
+        let result = CleverTapUtils.buildChargedEvent(from: [
+            "revenue": revenue,
+            "order_id": "order-1"
+        ])
+
+        #expect(result.details["Amount"] == nil)
+        #expect(result.details["Charged ID"] as? String == "order-1")
+        #expect(result.invalidRevenue as? String == revenue)
+    }
+
+    @Test("given a non finite number revenue, when buildChargedEvent is called, then the amount is dropped",
+          arguments: [Double.nan, Double.infinity, -Double.infinity])
+    func testChargedEventNonFiniteNumberRevenue(revenue: Double) {
+        let result = CleverTapUtils.buildChargedEvent(from: ["revenue": revenue])
+
+        #expect(result.details["Amount"] == nil)
+        #expect(result.invalidRevenue != nil)
+    }
+
     @Test("given a boolean revenue, when buildChargedEvent is called, then the amount is dropped")
     func testChargedEventBooleanRevenue() {
         let result = CleverTapUtils.buildChargedEvent(from: ["revenue": true])

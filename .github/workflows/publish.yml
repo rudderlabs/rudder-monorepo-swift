@@ -13,6 +13,7 @@ on:
           - adjust
           - facebook
           - appsflyer
+          - clevertap
       version:
         description: Released version to publish, e.g. 1.4.2
         type: string

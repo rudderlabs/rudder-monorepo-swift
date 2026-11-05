@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 2,
+  "sdkMinimum": "2.0.0",
+  "vendors": [
+    {
+      "identity": "clevertap-ios-sdk",
+      "product": "CleverTapSDK",
+      "requirement": {
+        "kind": "upToNextMajor",
+        "lower": "7.8.1",
+        "upper": "8.0.0"
+      },
+      "url": "https://github.com/CleverTap/clevertap-ios-sdk.git"
+    }
+  ]
+}

@@ -12,6 +12,7 @@ struct EventFilteringPluginConstants {
     static let allowListEventsKey = "whitelistedEvents"
     static let denyListEventsKey = "blacklistedEvents"
     static let eventFilteringOptionKey = "eventFilteringOption"
+    static let eventNameKey = "eventName"
 }
 
 // MARK: - EventFilteringPlugin
@@ -163,7 +164,7 @@ extension EventFilteringPlugin {
      - Parameters:
         - filteringOption: The filtering option to check.
         - destinationConfig: The destination configuration dictionary.
-     - Returns: `true` if the option needs no list or its list is valid, `false` otherwise.
+     - Returns: `true` if the option needs no list, or if every entry of its list has a string event name; `false` otherwise.
      */
     private func hasValidFilteringArray(filteringOption: String, destinationConfig: [String: Any]) -> Bool {
         let listKey: String
@@ -176,7 +177,9 @@ extension EventFilteringPlugin {
             return true
         }
         
-        return destinationConfig[listKey] is [[String: Any]]
+        guard let entries = destinationConfig[listKey] as? [[String: Any]] else { return false }
+        // One invalid entry rejects the whole list, so a partly read list never replaces a valid rule.
+        return entries.allSatisfy { $0[EventFilteringPluginConstants.eventNameKey] is String }
     }
     
     /**
@@ -214,7 +217,7 @@ extension EventFilteringPlugin {
      */
     private func parseFilteredEvents(eventsArray: [[String: Any]]) -> [String] {
         return eventsArray.compactMap { eventDict in
-            guard let eventName = eventDict["eventName"] as? String else {
+            guard let eventName = eventDict[EventFilteringPluginConstants.eventNameKey] as? String else {
                 return nil
             }
             let trimmedName = eventName.trimmingCharacters(in: .whitespacesAndNewlines)

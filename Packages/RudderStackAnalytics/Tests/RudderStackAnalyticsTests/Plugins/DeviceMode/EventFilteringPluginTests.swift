@@ -231,31 +231,40 @@ struct EventFilteringPluginTests {
         #expect(result != nil)
     }
     
-    @Test("Given an EventFilteringPlugin, When updating with configuration containing invalid entries, Then only valid events should be processed correctly")
+    @Test("Given no rule, When the first configuration has an entry without an event name, Then the whole list is rejected and all events pass")
     func testUpdateConfigurationWithMissingEventName() {
         let analytics = createAnalytics()
         let plugin = createPlugin()
         plugin.setup(analytics: analytics)
         
-        let configWithMissingNames: [String: Any] = [
+        plugin.updateConfiguration(destinationConfig: [
             "eventFilteringOption": "whitelistedEvents",
             "whitelistedEvents": [
                 ["eventName": "Valid Event12"],
-                ["invalidKey": "Invalid Entry"],
-                ["eventName": ""]
+                ["invalidKey": "Invalid Entry"]
             ]
-        ]
+        ])
         
-        plugin.updateConfiguration(destinationConfig: configWithMissingNames)
+        #expect(plugin.intercept(event: TrackEvent(event: "Valid Event12")) != nil)
+        #expect(plugin.intercept(event: TrackEvent(event: "Other Event")) != nil)
+    }
+    
+    @Test("Given a whitelist with a blank event name, When intercepting events, Then the blank entry is skipped and the rest of the rule applies")
+    func testUpdateConfigurationSkipsBlankEventName() {
+        let analytics = createAnalytics()
+        let plugin = createPlugin()
+        plugin.setup(analytics: analytics)
         
-        let validEvent = TrackEvent(event: "Valid Event12")
-        let invalidEvent = TrackEvent(event: "Invalid Entry")
+        plugin.updateConfiguration(destinationConfig: [
+            "eventFilteringOption": "whitelistedEvents",
+            "whitelistedEvents": [
+                ["eventName": "Valid Event12"],
+                ["eventName": "  "]
+            ]
+        ])
         
-        let validResult = plugin.intercept(event: validEvent)
-        let invalidResult = plugin.intercept(event: invalidEvent)
-        
-        #expect(validResult != nil)
-        #expect(invalidResult == nil)
+        #expect(plugin.intercept(event: TrackEvent(event: "Valid Event12")) != nil)
+        #expect(plugin.intercept(event: TrackEvent(event: "Other Event")) == nil)
     }
     
     @Test("Given an EventFilteringPlugin with configuration, When plugin is deallocated, Then new plugin instance allows all events through")
@@ -413,6 +422,48 @@ struct EventFilteringPluginTests {
 
         #expect(plugin.intercept(event: TrackEvent(event: "Event A")) == nil)
         #expect(plugin.intercept(event: TrackEvent(event: "Event B")) != nil)
+    }
+
+    @Test("Given a blacklist rule, When a blacklist entry has a non-string event name, Then the blacklist rule is kept")
+    func testNonStringEventNameKeepsPreviousRule() {
+        let analytics = createAnalytics()
+        let plugin = createPlugin()
+        plugin.setup(analytics: analytics)
+
+        plugin.updateConfiguration(destinationConfig: [
+            "eventFilteringOption": "blacklistedEvents",
+            "blacklistedEvents": [["eventName": "Event A"]]
+        ])
+        plugin.updateConfiguration(destinationConfig: [
+            "eventFilteringOption": "blacklistedEvents",
+            "blacklistedEvents": [["eventName": 123]]
+        ])
+
+        #expect(plugin.intercept(event: TrackEvent(event: "Event A")) == nil)
+    }
+
+    @Test("Given a blacklist rule and a malformed refresh, When the app restarts with the cached malformed config, Then the new plugin has no rule")
+    func testRestartWithCachedMalformedConfigHasNoRule() {
+        let analytics = createAnalytics()
+        let malformedConfig: [String: Any] = [
+            "eventFilteringOption": "whitelistedEvents",
+            "whitelistedEvents": "invalid_format"
+        ]
+        let plugin = createPlugin()
+        plugin.setup(analytics: analytics)
+        plugin.updateConfiguration(destinationConfig: [
+            "eventFilteringOption": "blacklistedEvents",
+            "blacklistedEvents": [["eventName": "Event A"]]
+        ])
+        plugin.updateConfiguration(destinationConfig: malformedConfig)
+        #expect(plugin.intercept(event: TrackEvent(event: "Event A")) == nil)
+
+        // A restart creates a new plugin, and the cached malformed config is its first config.
+        let pluginAfterRestart = createPlugin()
+        pluginAfterRestart.setup(analytics: analytics)
+        pluginAfterRestart.updateConfiguration(destinationConfig: malformedConfig)
+
+        #expect(pluginAfterRestart.intercept(event: TrackEvent(event: "Event A")) != nil)
     }
 
     @Test("Given a blacklist rule, When the destination is missing from the configuration, Then the rule is cleared")

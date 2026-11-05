@@ -35,7 +35,6 @@ excluded:
     - '.build'
     - '.lab'  # Local rehearsal evidence
     - 'Integrations/Braze/Sources'  # Until fix(braze): resolve SwiftLint findings
-    - 'Integrations/Braze/NativeTests'  # Removed after the import
 
 # Discourages using `as!`
 force_cast:

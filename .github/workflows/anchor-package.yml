@@ -16,6 +16,7 @@ on:
           - facebook
           - appsflyer
           - clevertap
+          - braze
       version:
         description: The version the package is already at, e.g. 1.0.0
         type: string

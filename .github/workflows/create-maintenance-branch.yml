@@ -17,6 +17,7 @@ on:
           - facebook
           - appsflyer
           - clevertap
+          - braze
       version:
         description: Latest released version of the line you want to patch, e.g. 1.4.2
         type: string

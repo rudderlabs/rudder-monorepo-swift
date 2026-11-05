@@ -67,6 +67,39 @@
         }
       ]
     },
+    "braze": {
+      "component": "integration-braze",
+      "path": "Integrations/Braze",
+      "platforms": [
+        "iOS 15",
+        "tvOS 15"
+      ],
+      "policies": {
+        "RudderStackAnalytics": {
+          "mode": "external",
+          "package": "swift-sdk"
+        }
+      },
+      "repository": "integration-swift-braze",
+      "sdkMinimum": "2.0.0",
+      "target": "RudderIntegrationBraze",
+      "toolsVersion": "5.9",
+      "vendorProducts": [
+        "BrazeKit"
+      ],
+      "vendors": [
+        {
+          "identity": "braze-swift-sdk-prebuilt-static",
+          "product": "BrazeKit",
+          "requirement": {
+            "kind": "upToNextMajor",
+            "lower": "18.2.0",
+            "upper": "19.0.0"
+          },
+          "url": "https://github.com/braze-inc/braze-swift-sdk-prebuilt-static"
+        }
+      ]
+    },
     "clevertap": {
       "component": "integration-clevertap",
       "path": "Integrations/CleverTap",

@@ -30,7 +30,7 @@ class MockCleverTapAdapter: CleverTapAdapter {
 
     private var isInitialized = false
 
-    /// The instance that the app passed in lite mode, or `nil` in standard mode.
+    /// The instance that the app passed as its own instance, or `nil` in standard mode.
     private let appInstance: Any?
 
     init(appInstance: Any? = nil) {

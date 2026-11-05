@@ -408,7 +408,7 @@ class CleverTapIntegrationTests {
         #expect(mockAdapter.recordChargedEventCalls.isEmpty)
     }
 
-    // MARK: - Lite Mode Tests
+    // MARK: - Own Instance Tests
 
     @Test("given an app's CleverTap instance and blank dashboard credentials, when create runs twice, then it does not throw and keeps the app's instance")
     @MainActor

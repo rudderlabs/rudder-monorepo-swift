@@ -42,7 +42,7 @@ struct ObjCCleverTapIntegrationTests {
         #expect(propagated === analytics)
     }
 
-    // MARK: - Lite Mode Tests
+    // MARK: - Own Instance Tests
 
     @Test("given an app's CleverTap instance, when the lite wrapper creates with blank credentials, then it succeeds and returns the app's instance")
     @MainActor

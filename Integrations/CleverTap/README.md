@@ -157,15 +157,10 @@ CleverTap.sharedInstance()?.setPushToken(deviceToken)
 CleverTap.sharedInstance()?.handleNotification(withData: userInfo)
 ```
 
-## Sample app
-
-The `Example` directory holds a SwiftUI sample app. Add your write key and data plane URL in
-`Example/CleverTapExampleApp.swift`, then run the `Example` scheme.
-
 ## Documentation
 
 For more information, see the [RudderStack documentation](https://www.rudderstack.com/docs/destinations/streaming-destinations/clevertap/).
 
 ## License
 
-MIT License - see [LICENSE.md](LICENSE.md) for details.
+MIT License - see [LICENSE](LICENSE) for details.

@@ -123,6 +123,16 @@
           "path": "Sources/RudderIntegrationAppsFlyer/Version.swift"
         }
       ]
+    },
+    "Integrations/CleverTap": {
+      "component": "integration-clevertap",
+      "package-name": "RudderIntegrationCleverTap",
+      "extra-files": [
+        {
+          "type": "generic",
+          "path": "Sources/RudderIntegrationCleverTap/Version.swift"
+        }
+      ]
     }
   }
 }

@@ -4,5 +4,6 @@
   "Integrations/Firebase": "2.0.1",
   "Integrations/Adjust": "2.0.1",
   "Integrations/Facebook": "2.0.1",
-  "Integrations/AppsFlyer": "3.0.1"
+  "Integrations/AppsFlyer": "3.0.1",
+  "Integrations/CleverTap": "2.0.0"
 }

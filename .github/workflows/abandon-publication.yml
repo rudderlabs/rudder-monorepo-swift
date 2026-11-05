@@ -17,6 +17,7 @@ on:
           - adjust
           - facebook
           - appsflyer
+          - clevertap
       version:
         description: Version to discard (it has no public tag yet), e.g. 1.4.3
         type: string

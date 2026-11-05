@@ -67,6 +67,38 @@
         }
       ]
     },
+    "clevertap": {
+      "component": "integration-clevertap",
+      "path": "Integrations/CleverTap",
+      "platforms": [
+        "iOS 15"
+      ],
+      "policies": {
+        "RudderStackAnalytics": {
+          "mode": "external",
+          "package": "swift-sdk"
+        }
+      },
+      "repository": "integration-swift-clevertap",
+      "sdkMinimum": "2.0.0",
+      "target": "RudderIntegrationCleverTap",
+      "toolsVersion": "5.9",
+      "vendorProducts": [
+        "CleverTapSDK"
+      ],
+      "vendors": [
+        {
+          "identity": "clevertap-ios-sdk",
+          "product": "CleverTapSDK",
+          "requirement": {
+            "kind": "upToNextMajor",
+            "lower": "7.8.1",
+            "upper": "8.0.0"
+          },
+          "url": "https://github.com/CleverTap/clevertap-ios-sdk.git"
+        }
+      ]
+    },
     "facebook": {
       "component": "integration-facebook",
       "path": "Integrations/Facebook",

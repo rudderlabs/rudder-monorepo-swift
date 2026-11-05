@@ -14,6 +14,7 @@ body:
         - "adjust"
         - "facebook"
         - "appsflyer"
+        - "clevertap"
         - "Other / not sure"
     validations:
       required: true

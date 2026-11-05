@@ -6,7 +6,8 @@
     "firebase": "integration-swift-firebase",
     "adjust": "integration-swift-adjust",
     "facebook": "integration-swift-facebook",
-    "appsflyer": "integration-swift-appsflyer"
+    "appsflyer": "integration-swift-appsflyer",
+    "clevertap": "integration-swift-clevertap"
   },
   "schemaVersion": 1
 }

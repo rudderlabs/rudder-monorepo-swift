@@ -15,6 +15,7 @@ let package = Package(
         .library(name: "RudderIntegrationAdjust", targets: ["RudderIntegrationAdjust"]),
         .library(name: "RudderIntegrationFacebook", targets: ["RudderIntegrationFacebook"]),
         .library(name: "RudderIntegrationAppsFlyer", targets: ["RudderIntegrationAppsFlyer"]),
+        .library(name: "RudderIntegrationCleverTap", targets: ["RudderIntegrationCleverTap"]),
     ],
     dependencies: [
         // @integrations-dependencies
@@ -23,6 +24,7 @@ let package = Package(
         .package(url: "https://github.com/adjust/ios_sdk", .upToNextMajor(from: "5.4.6")),
         .package(url: "https://github.com/facebook/facebook-ios-sdk", .upToNextMajor(from: "18.0.0")),
         .package(url: "https://github.com/AppsFlyerSDK/AppsFlyerFramework-Static", .upToNextMajor(from: "7.0.1")),
+        .package(url: "https://github.com/CleverTap/clevertap-ios-sdk.git", .upToNextMajor(from: "7.8.1")),
     ],
     targets: [
         .target(name: "RudderStackAnalytics",
@@ -65,5 +67,11 @@ let package = Package(
         .testTarget(name: "RudderIntegrationAppsFlyerTests",
                     dependencies: ["RudderIntegrationAppsFlyer"],
                     path: "Integrations/AppsFlyer/Tests/RudderIntegrationAppsFlyerTests"),
+        .target(name: "RudderIntegrationCleverTap",
+                dependencies: [.product(name: "CleverTapSDK", package: "clevertap-ios-sdk"), "RudderStackAnalytics"],
+                path: "Integrations/CleverTap/Sources/RudderIntegrationCleverTap"),
+        .testTarget(name: "RudderIntegrationCleverTapTests",
+                    dependencies: ["RudderIntegrationCleverTap"],
+                    path: "Integrations/CleverTap/Tests/RudderIntegrationCleverTapTests"),
     ]
 )

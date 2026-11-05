@@ -37,6 +37,15 @@
       }
     },
     {
+      "identity" : "braze-swift-sdk-prebuilt-static",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/braze-inc/braze-swift-sdk-prebuilt-static",
+      "state" : {
+        "revision" : "b30db5a1cf4870c61818eddfa17c92305e0a7962",
+        "version" : "18.2.1"
+      }
+    },
+    {
       "identity" : "clevertap-ios-sdk",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/CleverTap/clevertap-ios-sdk.git",

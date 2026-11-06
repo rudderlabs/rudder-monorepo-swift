@@ -43,7 +43,7 @@ class LibraryInfoPluginTests {
         }
         
         #expect(libraryInfo["name"] != nil)
-        #expect(libraryInfo["version"] != nil)
+        #expect(libraryInfo["version"] as? String == RudderStackAnalyticsVersion.current)
     }
     
     @Test("when setup is called, then analytics reference is stored")

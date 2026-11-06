@@ -133,6 +133,16 @@
           "path": "Sources/RudderIntegrationCleverTap/Version.swift"
         }
       ]
+    },
+    "Integrations/Braze": {
+      "component": "integration-braze",
+      "package-name": "RudderIntegrationBraze",
+      "extra-files": [
+        {
+          "type": "generic",
+          "path": "Sources/RudderIntegrationBraze/Version.swift"
+        }
+      ]
     }
   }
 }

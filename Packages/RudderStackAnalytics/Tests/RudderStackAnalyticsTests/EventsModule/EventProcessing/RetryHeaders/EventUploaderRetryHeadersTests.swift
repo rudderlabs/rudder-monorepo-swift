@@ -16,10 +16,14 @@ class EventUploaderRetryHeadersTests {
     var mockRetryHeadersProvider: MockRetryHeadersProvider
     var eventUploader: EventUploader
     var uploadChannel: AsyncChannel<String>
+    /// This instance's data plane host, so other tests' requests do not reach its handler.
+    let host: String
     
     init() {
+        let host = "\(UUID().uuidString.lowercased()).dataplane.test"
+        self.host = host
         mockStorage = MockStorage()
-        let config = MockProvider.createMockConfiguration(storage: mockStorage)
+        let config = MockProvider.createMockConfiguration(dataPlaneUrl: "https://\(host)", storage: mockStorage)
         config.trackApplicationLifecycleEvents = false
         config.sessionConfiguration.automaticSessionTracking = false
         config.flushPolicies = []
@@ -39,7 +43,7 @@ class EventUploaderRetryHeadersTests {
     }
     
     deinit {
-        MockProvider.teardownMockURLSession()
+        MockProvider.teardownMockURLSession(host: host)
         eventUploader.stop()
         let storage = mockStorage
         Task.detached {
@@ -52,7 +56,7 @@ class EventUploaderRetryHeadersTests {
     func testUploadCallsPrepareHeaders() async throws {
         guard let dataItem = await prepareBatchDataItem() else { return }
         
-        MockProvider.setupMockURLSession()
+        MockProvider.setupMockURLSession(host: host)
         MockURLProtocol.requestHandler = { _ in
             return (statusCode: 200, data: "{}".data(using: .utf8), headers: nil)
         }
@@ -73,7 +77,7 @@ class EventUploaderRetryHeadersTests {
         ]
         
         var capturedRequest: URLRequest?
-        MockProvider.setupMockURLSession()
+        MockProvider.setupMockURLSession(host: host)
         MockURLProtocol.requestHandler = { request in
             capturedRequest = request
             return (statusCode: 200, data: "{}".data(using: .utf8), headers: nil)
@@ -92,7 +96,7 @@ class EventUploaderRetryHeadersTests {
         
         var callCount = 0
         let isOwnRequest = tagOwnRequests()
-        MockProvider.setupMockURLSession()
+        MockProvider.setupMockURLSession(host: host)
         MockURLProtocol.requestHandler = { request in
             guard isOwnRequest(request) else { return (statusCode: 200, data: "{}".data(using: .utf8), headers: nil) }
             callCount += 1
@@ -112,7 +116,7 @@ class EventUploaderRetryHeadersTests {
     func testRecordFailureNotCalledOnNonRetryableError() async throws {
         guard let dataItem = await prepareBatchDataItem() else { return }
         
-        MockProvider.setupMockURLSession()
+        MockProvider.setupMockURLSession(host: host)
         MockURLProtocol.requestHandler = { _ in
             return (statusCode: 400, data: nil, headers: nil)
         }
@@ -126,7 +130,7 @@ class EventUploaderRetryHeadersTests {
     func testClearCalledOnSuccess() async throws {
         guard let dataItem = await prepareBatchDataItem() else { return }
         
-        MockProvider.setupMockURLSession()
+        MockProvider.setupMockURLSession(host: host)
         MockURLProtocol.requestHandler = { _ in
             return (statusCode: 200, data: "{}".data(using: .utf8), headers: nil)
         }
@@ -140,7 +144,7 @@ class EventUploaderRetryHeadersTests {
     func testClearCalledOnNonRetryableError() async throws {
         guard let dataItem = await prepareBatchDataItem() else { return }
         
-        MockProvider.setupMockURLSession()
+        MockProvider.setupMockURLSession(host: host)
         MockURLProtocol.requestHandler = { _ in
             return (statusCode: 400, data: nil, headers: nil)
         }
@@ -156,7 +160,7 @@ class EventUploaderRetryHeadersTests {
         
         var callCount = 0
         let isOwnRequest = tagOwnRequests()
-        MockProvider.setupMockURLSession()
+        MockProvider.setupMockURLSession(host: host)
         MockURLProtocol.requestHandler = { request in
             guard isOwnRequest(request) else { return (statusCode: 200, data: "{}".data(using: .utf8), headers: nil) }
             callCount += 1

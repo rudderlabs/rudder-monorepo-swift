@@ -183,6 +183,12 @@ extension MockEventCapturePlugin {
 
 // MARK: - WaitForEvents
 extension MockEventCapturePlugin {
+    /// The time between checks. A sleep, not `Task.yield()`: a spinning wait can starve the tasks that deliver the events.
+    static let pollInterval: UInt64 = 10_000_000 // 10ms
+
+    /// How long a wait without its own timeout lasts, so a missing event fails the test instead of hanging it.
+    static let defaultTimeout: TimeInterval = 5
+
     // Generic version (wait for specific type)
     @discardableResult
     func waitForEvents<T: Event>(_ type: T.Type, count expectedCount: Int = 1, timeout: TimeInterval? = nil) async -> [T] {
@@ -193,10 +199,10 @@ extension MockEventCapturePlugin {
             if events.count >= expectedCount {
                 return events
             }
-            if let timeout, Date().timeIntervalSince(start) > timeout {
+            if Date().timeIntervalSince(start) > (timeout ?? Self.defaultTimeout) {
                 return events
             }
-            await Task.yield()
+            try? await Task.sleep(nanoseconds: Self.pollInterval)
         }
     }
     
@@ -210,10 +216,10 @@ extension MockEventCapturePlugin {
             if events.count >= expectedCount {
                 return events
             }
-            if let timeout, Date().timeIntervalSince(start) > timeout {
+            if Date().timeIntervalSince(start) > (timeout ?? Self.defaultTimeout) {
                 return events
             }
-            await Task.yield()
+            try? await Task.sleep(nanoseconds: Self.pollInterval)
         }
     }
 }

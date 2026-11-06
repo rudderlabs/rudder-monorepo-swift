@@ -152,20 +152,41 @@ final class MockProvider {
 // MARK: - Test Helpers
 extension MockProvider {
     
-    static func setupMockURLSession() {
-        URLProtocol.registerClass(MockURLProtocol.self)
-        
-        let config = URLSessionConfiguration.ephemeral
-        config.protocolClasses = [MockURLProtocol.self]
-        HttpNetwork.session = URLSession(configuration: config)
+    /**
+     Installs the mock session. With `host`, only requests to that host reach `MockURLProtocol.requestHandler`.
+     When the owner changes, the previous owner's handler and GET setting are cleared: its delayed teardown
+     no longer owns the mock network, so it would leave them in place for the next tests.
+     */
+    static func setupMockURLSession(host: String? = nil) {
+        MockURLProtocol.locked {
+            if MockURLProtocol.ownerHost != host {
+                MockURLProtocol.requestHandler = nil
+                MockURLProtocol.forwardGetRequestsToHandler = false
+            }
+            MockURLProtocol.ownerHost = host
+            URLProtocol.registerClass(MockURLProtocol.self)
+            
+            let config = URLSessionConfiguration.ephemeral
+            config.protocolClasses = [MockURLProtocol.self]
+            HttpNetwork.session = URLSession(configuration: config)
+        }
     }
     
-    static func teardownMockURLSession() {
-        URLProtocol.unregisterClass(MockURLProtocol.self)
-        MockURLProtocol.requestHandler = nil
-        MockURLProtocol.forwardGetRequestsToHandler = false
-        let config = URLSessionConfiguration.ephemeral
-        HttpNetwork.session = URLSession(configuration: config)
+    /**
+     Removes the mock session that `setupMockURLSession(host:)` installed with the same `host`.
+     A test instance can be released after the next test has started; its teardown then leaves the next test's
+     handler and session in place.
+     */
+    static func teardownMockURLSession(host: String? = nil) {
+        MockURLProtocol.locked {
+            guard MockURLProtocol.ownerHost == host else { return }
+            MockURLProtocol.ownerHost = nil
+            URLProtocol.unregisterClass(MockURLProtocol.self)
+            MockURLProtocol.requestHandler = nil
+            MockURLProtocol.forwardGetRequestsToHandler = false
+            let config = URLSessionConfiguration.ephemeral
+            HttpNetwork.session = URLSession(configuration: config)
+        }
     }
     
     static var sourceConfiguration: SourceConfig? {

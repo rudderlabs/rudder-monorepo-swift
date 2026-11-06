@@ -136,6 +136,11 @@ jobs:
           with open(os.environ['GITHUB_OUTPUT'],'a') as output:
               output.write('repository=' + names[key] + '\n')
           PYCODE
+      # The release builds and the customer check use the Xcode that the package's CI uses.
+      - name: Select the package's Xcode
+        env:
+          PACKAGE: ${{ inputs.package }}
+        run: python3 scripts/package_ci.py xcode --package "$PACKAGE" --root .lab/release-source >> "$GITHUB_ENV"
       - uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1
         id: token
         with:

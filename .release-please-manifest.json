@@ -6,5 +6,5 @@
   "Integrations/Facebook": "2.0.1",
   "Integrations/AppsFlyer": "3.0.1",
   "Integrations/CleverTap": "2.0.1",
-  "Integrations/Braze": "3.0.0"
+  "Integrations/Braze": "3.0.1"
 }

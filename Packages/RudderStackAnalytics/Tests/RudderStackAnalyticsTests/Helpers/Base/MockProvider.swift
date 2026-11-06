@@ -154,9 +154,15 @@ extension MockProvider {
     
     /**
      Installs the mock session. With `host`, only requests to that host reach `MockURLProtocol.requestHandler`.
+     When the owner changes, the previous owner's handler and GET setting are cleared: its delayed teardown
+     no longer owns the mock network, so it would leave them in place for the next tests.
      */
     static func setupMockURLSession(host: String? = nil) {
         MockURLProtocol.locked {
+            if MockURLProtocol.ownerHost != host {
+                MockURLProtocol.requestHandler = nil
+                MockURLProtocol.forwardGetRequestsToHandler = false
+            }
             MockURLProtocol.ownerHost = host
             URLProtocol.registerClass(MockURLProtocol.self)
             

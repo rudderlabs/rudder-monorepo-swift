@@ -98,7 +98,8 @@
           },
           "url": "https://github.com/braze-inc/braze-swift-sdk-prebuilt-static"
         }
-      ]
+      ],
+      "xcode": "26.2"
     },
     "clevertap": {
       "component": "integration-clevertap",

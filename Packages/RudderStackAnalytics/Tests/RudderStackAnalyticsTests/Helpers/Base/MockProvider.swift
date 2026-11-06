@@ -152,7 +152,11 @@ final class MockProvider {
 // MARK: - Test Helpers
 extension MockProvider {
     
-    static func setupMockURLSession() {
+    /**
+     Installs the mock session. With `host`, only requests to that host reach `MockURLProtocol.requestHandler`.
+     */
+    static func setupMockURLSession(host: String? = nil) {
+        MockURLProtocol.ownerHost = host
         URLProtocol.registerClass(MockURLProtocol.self)
         
         let config = URLSessionConfiguration.ephemeral
@@ -160,7 +164,14 @@ extension MockProvider {
         HttpNetwork.session = URLSession(configuration: config)
     }
     
-    static func teardownMockURLSession() {
+    /**
+     Removes the mock session that `setupMockURLSession(host:)` installed with the same `host`.
+     A test instance can be released after the next test has started; its teardown then leaves the next test's
+     handler and session in place.
+     */
+    static func teardownMockURLSession(host: String? = nil) {
+        guard MockURLProtocol.ownerHost == host else { return }
+        MockURLProtocol.ownerHost = nil
         URLProtocol.unregisterClass(MockURLProtocol.self)
         MockURLProtocol.requestHandler = nil
         MockURLProtocol.forwardGetRequestsToHandler = false

@@ -136,7 +136,7 @@ extension LifecycleTrackingPluginTests {
         while Date().timeIntervalSince(start) < timeout {
             let events = eventCapture.getEventsOfType(TrackEvent.self)
             if events.last?.event == Self.sentinelEvent { return events }
-            await Task.yield()
+            try? await Task.sleep(nanoseconds: MockEventCapturePlugin.pollInterval)
         }
         return eventCapture.getEventsOfType(TrackEvent.self)
     }

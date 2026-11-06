@@ -26,6 +26,13 @@ final class MockURLProtocol: URLProtocol {
      */
     static var forwardGetRequestsToHandler = false
     
+    /**
+     The host of the test that owns `requestHandler`, or `nil` when any host may reach it.
+     A request to another host gets an empty 200 instead, so an uploader that an earlier test left running
+     cannot reach the current test's handler.
+     */
+    static var ownerHost: String?
+    
     // MARK: - URLProtocol overrides
     
     override class func canInit(with request: URLRequest) -> Bool {
@@ -38,6 +45,11 @@ final class MockURLProtocol: URLProtocol {
     }
     
     override func startLoading() {
+        if let ownerHost = MockURLProtocol.ownerHost, request.url?.host != ownerHost {
+            respondWithEmptySuccess()
+            return
+        }
+        
         // GET requests return 200 empty unless the test explicitly opts in.
         // This absorbs background source config downloads (GET /sourceConfig)
         // that Analytics initialization spawns asynchronously, preventing them from
@@ -47,11 +59,7 @@ final class MockURLProtocol: URLProtocol {
         // and no failure (no retry loop).
         if request.httpMethod == "GET" &&
             (MockURLProtocol.requestHandler == nil || !MockURLProtocol.forwardGetRequestsToHandler) {
-            if let url = request.url,
-               let response = HTTPURLResponse(url: url, statusCode: 200, httpVersion: "HTTP/1.1", headerFields: nil) {
-                client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
-                client?.urlProtocolDidFinishLoading(self)
-            }
+            respondWithEmptySuccess()
             return
         }
         
@@ -95,5 +103,13 @@ final class MockURLProtocol: URLProtocol {
     
     override func stopLoading() {
         /* Default implementation (no-op) */
+    }
+    
+    private func respondWithEmptySuccess() {
+        if let url = request.url,
+           let response = HTTPURLResponse(url: url, statusCode: 200, httpVersion: "HTTP/1.1", headerFields: nil) {
+            client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+            client?.urlProtocolDidFinishLoading(self)
+        }
     }
 }

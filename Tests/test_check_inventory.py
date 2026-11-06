@@ -88,6 +88,15 @@ class InventoryTests(unittest.TestCase):
             self.edit("packages.json", lambda d: d["packages"]["sprig"].update(title=value))
             self.assertIn("sprig: title must be a non-empty string (the public Release heading)", problems(self.root))
 
+    def test_xcode_is_an_optional_xcode_version(self):
+        for value in ("26", "26.2", "16.4.1"):
+            self.edit("packages.json", lambda d: d["packages"]["sprig"].update(xcode=value))
+            self.assertEqual(problems(self.root), [])
+        for value in ("", "latest", "26.2 ", "Xcode_26.2", "0.1", 26.2):
+            self.edit("packages.json", lambda d: d["packages"]["sprig"].update(xcode=value))
+            self.assertIn('sprig: xcode must be an Xcode version such as "26.2" (the package\'s CI and release builds)',
+                          problems(self.root))
+
     def test_real_packages_have_release_titles(self):
         self.assertEqual({k: inventory()[k].get("title") for k in ("swift-sdk", "sprig", "firebase")},
                          {"swift-sdk": "RudderStack Swift SDK", "sprig": "RudderStack Sprig Integration",

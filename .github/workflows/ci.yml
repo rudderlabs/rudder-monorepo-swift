@@ -113,6 +113,11 @@ jobs:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
         with:
           persist-credentials: false
+      # `xcode` in the package's release/packages.json entry; without it, the runner's default Xcode.
+      - name: Select the package's Xcode
+        run: python3 scripts/package_ci.py xcode --package "$PACKAGE" >> "$GITHUB_ENV"
+        env:
+          PACKAGE: ${{ matrix.package }}
       # xcodebuild test on the first available iPhone of the newest iOS runtime (scripts/ci/pick-simulator.sh).
       # A temporary per-package scheme builds only that package's test targets (package_ci.py test_scheme).
       - name: iOS Simulator tests
@@ -139,6 +144,11 @@ jobs:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
         with:
           persist-credentials: false
+      # `xcode` in the package's release/packages.json entry; without it, the runner's default Xcode.
+      - name: Select the package's Xcode
+        run: python3 scripts/package_ci.py xcode --package "$PACKAGE" >> "$GITHUB_ENV"
+        env:
+          PACKAGE: ${{ matrix.package }}
       # Export to a temporary folder, check the generated manifest, build it for generic iOS.
       - name: Export check
         run: python3 scripts/package_ci.py export-check --package "$PACKAGE"

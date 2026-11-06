@@ -12,6 +12,7 @@ from generate_github import stale
 FIELDS = ("path", "target", "component", "repository")
 USES = re.compile(r"^\s*(?:-\s*)?uses:\s*['\"]?([^\s'\"#]+)", re.M)
 PINNED = re.compile(r"[\w.-]+/[\w./-]+@[0-9a-f]{40}\Z")
+XCODE = re.compile(r"[1-9][0-9]*(?:\.[0-9]+){0,2}")
 
 
 def unpinned(root=ROOT):
@@ -36,6 +37,8 @@ def problems(root=ROOT):
             errors.append(f"{key}: missing {', '.join(missing)}")
         if "title" in package and not (isinstance(package["title"], str) and package["title"].strip()):
             errors.append(f"{key}: title must be a non-empty string (the public Release heading)")
+        if "xcode" in package and not (isinstance(package["xcode"], str) and XCODE.fullmatch(package["xcode"])):
+            errors.append(f"{key}: xcode must be an Xcode version such as \"26.2\" (the package's CI and release builds)")
         if names.get(key) != package.get("repository"):
             errors.append(f"{key}: repository {package.get('repository')!r} differs from allowlist {names.get(key)!r}")
     for field in ("path", "component"):

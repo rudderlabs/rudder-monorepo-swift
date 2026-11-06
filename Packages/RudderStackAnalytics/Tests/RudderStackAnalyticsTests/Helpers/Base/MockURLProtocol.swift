@@ -12,11 +12,16 @@ import Foundation
  */
 final class MockURLProtocol: URLProtocol {
     
+    typealias RequestHandler = (URLRequest) throws -> (Int, Data?, [String: String]?)
+    
     /**
      Closure the test sets to provide a mocked response.
      - Returns: `(statusCode, responseData, headers)`
      */
-    static var requestHandler: ((URLRequest) throws -> (Int, Data?, [String: String]?))?
+    static var requestHandler: RequestHandler? {
+        get { locked { storedRequestHandler } }
+        set { locked { storedRequestHandler = newValue } }
+    }
     
     /**
      When `false` (default), GET requests return 200 empty even if `requestHandler` is set.
@@ -24,14 +29,36 @@ final class MockURLProtocol: URLProtocol {
      Tests that need GET requests to reach the handler (e.g. SourceConfigProviderTests)
      must set this to `true`.
      */
-    static var forwardGetRequestsToHandler = false
+    static var forwardGetRequestsToHandler: Bool {
+        get { locked { storedForwardGetRequestsToHandler } }
+        set { locked { storedForwardGetRequestsToHandler = newValue } }
+    }
     
     /**
      The host of the test that owns `requestHandler`, or `nil` when any host may reach it.
      A request to another host gets an empty 200 instead, so an uploader that an earlier test left running
      cannot reach the current test's handler.
      */
-    static var ownerHost: String?
+    static var ownerHost: String? {
+        get { locked { storedOwnerHost } }
+        set { locked { storedOwnerHost = newValue } }
+    }
+    
+    /**
+     Runs `body` while no other thread reads or changes the mock state. Requests arrive on URLSession threads,
+     and a test instance can be torn down on another thread while the next test sets up, so setup and teardown
+     check and change the state in one step. Recursive, so `body` can use the properties above.
+     */
+    static func locked<T>(_ body: () throws -> T) rethrows -> T {
+        lock.lock()
+        defer { lock.unlock() }
+        return try body()
+    }
+    
+    private static let lock = NSRecursiveLock()
+    private static var storedRequestHandler: RequestHandler?
+    private static var storedForwardGetRequestsToHandler = false
+    private static var storedOwnerHost: String?
     
     // MARK: - URLProtocol overrides
     
@@ -45,7 +72,14 @@ final class MockURLProtocol: URLProtocol {
     }
     
     override func startLoading() {
-        if let ownerHost = MockURLProtocol.ownerHost, request.url?.host != ownerHost {
+        // One snapshot of the owner and the handler, so a request cannot pass the owner check and then
+        // read a handler that the next test installed in between. The handler runs outside the lock.
+        let (ownerHost, handler, forwardGetRequests) = MockURLProtocol.locked {
+            (MockURLProtocol.storedOwnerHost, MockURLProtocol.storedRequestHandler,
+             MockURLProtocol.storedForwardGetRequestsToHandler)
+        }
+        
+        if let ownerHost, request.url?.host != ownerHost {
             respondWithEmptySuccess()
             return
         }
@@ -57,13 +91,12 @@ final class MockURLProtocol: URLProtocol {
         //
         // POST requests with no handler stay pending — no success (batches not deleted)
         // and no failure (no retry loop).
-        if request.httpMethod == "GET" &&
-            (MockURLProtocol.requestHandler == nil || !MockURLProtocol.forwardGetRequestsToHandler) {
+        if request.httpMethod == "GET" && (handler == nil || !forwardGetRequests) {
             respondWithEmptySuccess()
             return
         }
         
-        guard let handler = MockURLProtocol.requestHandler else {
+        guard let handler else {
             // POST with no handler: keep pending
             return
         }

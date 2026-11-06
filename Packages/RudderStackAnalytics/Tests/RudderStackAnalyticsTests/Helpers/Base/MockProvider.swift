@@ -156,12 +156,14 @@ extension MockProvider {
      Installs the mock session. With `host`, only requests to that host reach `MockURLProtocol.requestHandler`.
      */
     static func setupMockURLSession(host: String? = nil) {
-        MockURLProtocol.ownerHost = host
-        URLProtocol.registerClass(MockURLProtocol.self)
-        
-        let config = URLSessionConfiguration.ephemeral
-        config.protocolClasses = [MockURLProtocol.self]
-        HttpNetwork.session = URLSession(configuration: config)
+        MockURLProtocol.locked {
+            MockURLProtocol.ownerHost = host
+            URLProtocol.registerClass(MockURLProtocol.self)
+            
+            let config = URLSessionConfiguration.ephemeral
+            config.protocolClasses = [MockURLProtocol.self]
+            HttpNetwork.session = URLSession(configuration: config)
+        }
     }
     
     /**
@@ -170,13 +172,15 @@ extension MockProvider {
      handler and session in place.
      */
     static func teardownMockURLSession(host: String? = nil) {
-        guard MockURLProtocol.ownerHost == host else { return }
-        MockURLProtocol.ownerHost = nil
-        URLProtocol.unregisterClass(MockURLProtocol.self)
-        MockURLProtocol.requestHandler = nil
-        MockURLProtocol.forwardGetRequestsToHandler = false
-        let config = URLSessionConfiguration.ephemeral
-        HttpNetwork.session = URLSession(configuration: config)
+        MockURLProtocol.locked {
+            guard MockURLProtocol.ownerHost == host else { return }
+            MockURLProtocol.ownerHost = nil
+            URLProtocol.unregisterClass(MockURLProtocol.self)
+            MockURLProtocol.requestHandler = nil
+            MockURLProtocol.forwardGetRequestsToHandler = false
+            let config = URLSessionConfiguration.ephemeral
+            HttpNetwork.session = URLSession(configuration: config)
+        }
     }
     
     static var sourceConfiguration: SourceConfig? {

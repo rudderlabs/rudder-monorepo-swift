@@ -7,7 +7,8 @@
     "adjust": "integration-swift-adjust",
     "facebook": "integration-swift-facebook",
     "appsflyer": "integration-swift-appsflyer",
-    "clevertap": "integration-swift-clevertap"
+    "clevertap": "integration-swift-clevertap",
+    "braze": "integration-swift-braze"
   },
   "schemaVersion": 1
 }

@@ -1,6 +1,6 @@
 # Staged dependency-management configuration
 
-Owner: SDK team. Status: local dependency guards implemented and enforced by CI; the Dependabot template is not activated yet (it is turned on in this monorepo only, once all packages are imported).
+Owner: SDK team. Status: local dependency guards implemented and enforced by CI. Dependabot alerts and security updates are on through the organization's security configuration. Version updates are off: the template is not activated, pending a team decision.
 
 This bundle holds the dependency-management requirements: exporter dependency guards, release markers, regression tests, and a read-only monitoring collector. Follow [acceptance commands and gates](ACCEPTANCE.md) before activation.
 

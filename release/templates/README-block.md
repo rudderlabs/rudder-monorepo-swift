@@ -1,4 +1,4 @@
 
 ## Report issues / contribute
 
-This repository only publishes releases; it does not accept pull requests. To report a bug or request a feature, [open an issue]({public_issues}). See [CONTRIBUTING.md](CONTRIBUTING.md).
+This repository is read-only: it only publishes releases of this package from [{source}](https://github.com/{owner}/{source}). It does not accept issues or pull requests. To report a bug or request a feature, [open an issue in {source}]({issues}). See [CONTRIBUTING.md](CONTRIBUTING.md).

@@ -1,7 +1,8 @@
 # Contributing
 
-This repository only publishes releases. Its code is generated from the source repository, so it does not accept pull requests.
+This repository is read-only. Its code is generated from [{source}](https://github.com/{owner}/{source}), so it does not accept issues or pull requests.
 
-- Report a bug or request a feature: [open an issue]({public_issues}) in this repository.
+- Report a bug or request a feature: [open an issue]({issues}) in {source}.
+- Propose a change: follow the monorepo's [CONTRIBUTING.md](https://github.com/{owner}/{source}/blob/main/CONTRIBUTING.md).
 
-Maintainers make the change in the source repository; it ships in this package's next release.
+Changes ship in this package's next release.

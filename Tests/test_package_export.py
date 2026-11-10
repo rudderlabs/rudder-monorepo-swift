@@ -108,15 +108,16 @@ class PackageExportTests(unittest.TestCase):
         output, _ = self.export("sprig")
         provenance = load(output / ".publication.json")
         self.assertEqual((output / ".github/CODEOWNERS").read_text(), "* @rudderlabs/sdk_team\n")
-        # While the monorepo is internal, the public repositories take issues but no pull requests.
+        # The public repositories are read-only: issues and pull requests go to the monorepo.
         contributing = (output / "CONTRIBUTING.md").read_text()
-        self.assertIn("so it does not accept pull requests.", contributing)
+        self.assertIn("so it does not accept issues or pull requests.", contributing)
         readme = (output / "README.md").read_text()
         self.assertTrue(readme.startswith("# Fixture\n\n## Report issues / contribute\n"))
-        self.assertIn("it does not accept pull requests", readme)
+        self.assertIn("It does not accept issues or pull requests.", readme)
         for text in (contributing, readme):
-            self.assertIn("https://github.com/rudderlabs/integration-swift-sprig/issues", text)
-            self.assertNotIn("rudder-monorepo-swift", text)
+            self.assertIn("https://github.com/rudderlabs/rudder-monorepo-swift/issues/new/choose", text)
+            self.assertNotIn("integration-swift-sprig/issues", text)
+            self.assertNotIn("{", text)
             self.assertNotIn("not merged", text)
         for path in ("CONTRIBUTING.md", ".github/CODEOWNERS", "README.md"):
             self.assertEqual(provenance["fileHashes"][path], hashlib.sha256((output / path).read_bytes()).hexdigest())

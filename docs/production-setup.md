@@ -30,7 +30,7 @@ GitHub App `rudderstack-github-actions` installed on this repository with Conten
 | Organization secret | `RELEASE_PRIVATE_KEY` | the App's private key | Release Please, Publish Package, Tag & Release Packages, Abandon Unpublished Version, Create Maintenance Branch, Set Current Release Version, release sanity | done (organization) |
 | Dependabot secrets | `RELEASE_PRIVATE_KEY` | the same private key | `dependabot-sync.yml` (Dependabot runs see only Dependabot secrets) | done (organization) |
 
-Environment `spm-release` (no reviewers, no branch policy) is the release workflows' environment; it holds the release Slack webhook.
+Environment `spm-release` (no reviewers; deployment branches `main` and `release/*`) is the release workflows' environment; it holds the release Slack webhook.
 
 Release sanity (the SDK's e2e suite) also needs the App installed on `rudderlabs/rudder-mobile-sdk-test` with **Actions: write**. Without it the sanity job only warns; it never fails a release.
 

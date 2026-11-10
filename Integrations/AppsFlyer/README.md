@@ -176,7 +176,7 @@ AppsFlyerLib.shared().registerSessionReadyListener {
 > Until then no events are sent. If you need a guaranteed start, add your own timeout that
 > calls `start()` regardless of whether the prompt has been answered.
 
-For a complete working setup, see [`Example/AppsFlyerExampleApp.swift`](Example/AppsFlyerExampleApp.swift).
+For a complete working setup, see [`AppsFlyerExampleApp.swift`](https://github.com/rudderlabs/rudder-monorepo-swift/blob/main/Examples/AppsFlyer/AppsFlyerExampleApp.swift) in rudder-monorepo-swift.
 
 ---
 

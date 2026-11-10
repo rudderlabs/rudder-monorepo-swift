@@ -59,4 +59,4 @@ The 8 repositories that customers install from (`rudder-sdk-swift` and `integrat
 - Pull requests from collaborators only; Wiki, Projects and Discussions off; "Automatically delete head branches" on.
 - No workflow files, no repository secrets or variables, and no environments except `copilot` (created by Copilot code review).
 - CodeQL default setup off. Dependabot alerts and security updates come from the organization's security configuration.
-- Issues on until this repository is public; then off, with issues reported here.
+- Issues off; issues are reported in this repository.

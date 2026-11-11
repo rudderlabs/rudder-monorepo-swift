@@ -350,6 +350,8 @@ class AdjustIntegrationTests {
             "appToken": testAppToken,
             "enableInstallAttributionTracking": false
         ])
+        // Adjust takes the delegate only at initialization, so a later enable needs it already set.
+        #expect(self.mockAdaptor.initConfig?.delegate != nil)
         
         // Update to enable attribution tracking
         integration.update(destinationConfig: [

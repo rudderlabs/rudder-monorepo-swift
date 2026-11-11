@@ -488,6 +488,51 @@ struct EventFilteringPluginTests {
         #expect(pluginAfterRestart.intercept(event: TrackEvent(event: "Event A")) != nil)
     }
 
+    @Test("Given a rule cleared by a configuration without a filtering option, When a malformed whitelist arrives, Then no filter is kept")
+    func testMalformedListAfterClearKeepsNoFilter() {
+        let analytics = createAnalytics()
+        let plugin = createPlugin()
+        plugin.setup(analytics: analytics)
+        plugin.updateConfiguration(destinationConfig: [
+            "eventFilteringOption": "blacklistedEvents",
+            "blacklistedEvents": [["eventName": "Event A"]]
+        ])
+        plugin.updateConfiguration(destinationConfig: ["eventFilteringOption": ""])
+
+        plugin.updateConfiguration(destinationConfig: [
+            "eventFilteringOption": "whitelistedEvents",
+            "whitelistedEvents": [
+                ["eventName": "Event B"],
+                ["invalidKey": "Invalid Entry"]
+            ]
+        ])
+
+        #expect(plugin.intercept(event: TrackEvent(event: "Event A")) != nil)
+        #expect(plugin.intercept(event: TrackEvent(event: "Other Event")) != nil)
+    }
+
+    @Test("Given a whitelist rule, When a refresh has an event name that the decoder reads as a URL, Then the new list applies")
+    func testRefreshWithUrlLikeEventNameApplies() throws {
+        let analytics = createAnalytics()
+        let plugin = createPlugin()
+        plugin.setup(analytics: analytics)
+        plugin.updateConfiguration(destinationConfig: [
+            "eventFilteringOption": "whitelistedEvents",
+            "whitelistedEvents": [["eventName": "Event A"]]
+        ])
+
+        // Decoded the way the source config listener receives it, so the URL-like name arrives as a URL.
+        let json = """
+        {"eventFilteringOption": "whitelistedEvents",
+         "whitelistedEvents": [{"eventName": "Opened www.example.com"}, {"eventName": "Event B"}]}
+        """
+        let decoded = try JSONDecoder().decode([String: AnyCodable].self, from: Data(json.utf8))
+        plugin.updateConfiguration(destinationConfig: decoded.mapValues { $0.value })
+
+        #expect(plugin.intercept(event: TrackEvent(event: "Event B")) != nil)
+        #expect(plugin.intercept(event: TrackEvent(event: "Event A")) == nil)
+    }
+
     @Test("Given a blacklist rule, When the destination is missing from the configuration, Then the rule is cleared")
     func testMissingDestinationClearsRule() {
         let analytics = createAnalytics()

@@ -137,7 +137,7 @@ extension EventFilteringPlugin {
     private func updateFilteringConfiguration(destinationConfig: [String: Any]?) {
         guard let destinationConfig = destinationConfig else {
             logger.debug(log: "EventFilteringPlugin: No destination config found for: \(destinationKey)")
-            filteringRule = .none
+            filteringRule = FilteringRule.none
             return
         }
         
@@ -145,7 +145,7 @@ extension EventFilteringPlugin {
         
         if newFilteringOption.isEmpty {
             logger.debug(log: "EventFilteringPlugin: Missing event filtering option for destination: \(destinationKey)")
-            filteringRule = .none
+            filteringRule = FilteringRule.none
             return
         }
 
@@ -185,7 +185,11 @@ extension EventFilteringPlugin {
         
         guard let entries = destinationConfig[listKey] as? [[String: Any]] else { return false }
         // One invalid entry rejects the whole list, so a partly read list never replaces a valid rule.
-        return entries.allSatisfy { $0[EventFilteringPluginConstants.eventNameKey] is String }
+        // The config decoder turns some strings into a URL or a Date; each was still a string in the JSON.
+        return entries.allSatisfy { entry in
+            let eventName = entry[EventFilteringPluginConstants.eventNameKey]
+            return eventName is String || eventName is URL || eventName is Date
+        }
     }
     
     /**

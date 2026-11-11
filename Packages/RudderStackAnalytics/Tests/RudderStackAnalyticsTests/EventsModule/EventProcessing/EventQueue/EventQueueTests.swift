@@ -194,9 +194,11 @@ class EventQueueTests {
 class EventQueueSourceReEnableTests {
     var mockStorage = MockStorage()
     var postCount = 0
+    /// This instance's data plane host, so other tests' requests do not reach its handler.
+    let host = "\(UUID().uuidString.lowercased()).dataplane.test"
     
     deinit {
-        MockProvider.teardownMockURLSession()
+        MockProvider.teardownMockURLSession(host: host)
         let storage = mockStorage
         Task.detached {
             await storage.removeAll()
@@ -204,10 +206,11 @@ class EventQueueSourceReEnableTests {
     }
     
     private func makeAnalytics(statusCodes: [Int]) -> Analytics {
-        let config = MockProvider.createMockConfiguration(storage: mockStorage)
+        let config = MockProvider.createMockConfiguration(dataPlaneUrl: "https://\(host)", storage: mockStorage)
         config.trackApplicationLifecycleEvents = false
         config.sessionConfiguration.automaticSessionTracking = false
         config.flushPolicies = []
+        MockProvider.setupMockURLSession(host: host)
         MockURLProtocol.requestHandler = { [unowned self] request in
             guard request.httpMethod == "POST" else { return (200, nil, nil) }
             self.postCount += 1

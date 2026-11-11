@@ -365,17 +365,18 @@ extension SourceConfigProviderTests {
 }
 
 // MARK: - Periodic Refresh
-@Suite("SourceConfigProvider periodic refresh Tests")
+@Suite("SourceConfigProvider periodic refresh Tests", .serialized)
 class SourceConfigProviderRefreshTests {
-    private static let intervalInMillis: UInt64 = 1_000
+    private static let intervalInMillis: UInt64 = 2_000
     
     private let mockStorage = MockStorage()
     private let requestCounter = RequestCounter()
     private var analytics: Analytics?
+    /// This instance's control plane host, so other tests' requests do not reach its handler.
+    private let host = "\(UUID().uuidString.lowercased()).controlplane.test"
     
     deinit {
-        MockURLProtocol.forwardGetRequestsToHandler = false
-        MockProvider.teardownMockURLSession()
+        MockProvider.teardownMockURLSession(host: host)
         let storage = self.mockStorage
         Task.detached {
             await storage.removeAll()
@@ -385,6 +386,9 @@ class SourceConfigProviderRefreshTests {
     /** Returns a provider with a short interval, after the SDK's own launch fetch has stored its config. */
     private func makeProvider(refreshStatusCode: Int = 200, refreshResponseDelay: TimeInterval = 0) async -> (Analytics, SourceConfigProvider) {
         let counter = self.requestCounter
+        let config = MockProvider.createMockConfiguration(storage: mockStorage)
+        config.controlPlaneUrl = "https://\(host)"
+        MockProvider.setupMockURLSession(host: host)
         MockURLProtocol.forwardGetRequestsToHandler = true
         MockURLProtocol.requestHandler = { request in
             guard request.httpMethod == "GET" else { return (200, nil, nil) }
@@ -394,7 +398,7 @@ class SourceConfigProviderRefreshTests {
             let json = statusCode == 200 ? (MockProvider.sourceConfigurationDictionary ?? [:]) : ["error": "Server error"]
             return (statusCode, try JSONSerialization.data(withJSONObject: json), ["Content-Type": "application/json"])
         }
-        let analytics = MockProvider.createMockAnalytics(storage: mockStorage)
+        let analytics = Analytics(configuration: config)
         self.analytics = analytics
         await mockStorage.waitForKeyValue(key: Constants.storageKeys.sourceConfig)
         analytics.sourceConfigProvider?.stopPeriodicRefresh()
@@ -526,7 +530,7 @@ class SourceConfigProviderRefreshTests {
             (lastFetchEnd: UInt64?.some(5_000), now: UInt64(4_000), expected: UInt64(0))
           ])
     func testTimeUntilNextFetch(lastFetchEnd: UInt64?, now: UInt64, expected: UInt64) {
-        let delay = SourceConfigProvider.timeUntilNextFetch(lastFetchEndInMillis: lastFetchEnd, nowInMillis: now, intervalInMillis: Self.intervalInMillis)
+        let delay = SourceConfigProvider.timeUntilNextFetch(lastFetchEndInMillis: lastFetchEnd, nowInMillis: now, intervalInMillis: 1_000)
         #expect(delay == expected)
     }
 }

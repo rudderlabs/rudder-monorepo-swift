@@ -251,7 +251,7 @@ class PublicationQueueTests(unittest.TestCase):
         self.assertIn('step-security/harden-runner@', pending)
         self.assertIn('run: python3 scripts/publication_queue.py\n', pending)
         self.assertIn("if: ${{ !cancelled() && needs.pending.outputs.pending == 'true' }}", workflow)
-        self.assertIn('Merged a bot PR? Run Tag & Release Packages', (ROOT / 'README.md').read_text())
+        self.assertIn('Merged a bot PR? Run Tag & Release Packages', (ROOT / 'docs/reviewed-publication/README.md').read_text())
 
 
 if __name__ == '__main__':

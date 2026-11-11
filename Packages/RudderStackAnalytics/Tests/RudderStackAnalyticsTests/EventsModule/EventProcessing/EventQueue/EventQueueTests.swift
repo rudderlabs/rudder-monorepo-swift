@@ -193,7 +193,8 @@ class EventQueueTests {
 @Suite("EventQueue source re-enable Tests")
 class EventQueueSourceReEnableTests {
     var mockStorage = MockStorage()
-    var postCount = 0
+    /// Written on the mock network's thread and read by the test.
+    @Synchronized var postCount = 0
     /// This instance's data plane host, so other tests' requests do not reach its handler.
     let host = "\(UUID().uuidString.lowercased()).dataplane.test"
     
@@ -213,8 +214,12 @@ class EventQueueSourceReEnableTests {
         MockProvider.setupMockURLSession(host: host)
         MockURLProtocol.requestHandler = { [unowned self] request in
             guard request.httpMethod == "POST" else { return (200, nil, nil) }
-            self.postCount += 1
-            let statusCode = statusCodes[min(self.postCount, statusCodes.count) - 1]
+            var postNumber = 0
+            self.$postCount.modify { count in
+                count += 1
+                postNumber = count
+            }
+            let statusCode = statusCodes[min(postNumber, statusCodes.count) - 1]
             return (statusCode: statusCode, data: "{}".data(using: .utf8), headers: nil)
         }
         let analytics = Analytics(configuration: config)

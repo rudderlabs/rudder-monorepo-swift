@@ -231,7 +231,7 @@ struct EventFilteringPluginTests {
         #expect(result != nil)
     }
     
-    @Test("Given no rule, When the first configuration has an entry without an event name, Then the whole list is rejected and all events pass")
+    @Test("Given no rule, When the first configuration has an entry without an event name, Then the valid entries apply")
     func testUpdateConfigurationWithMissingEventName() {
         let analytics = createAnalytics()
         let plugin = createPlugin()
@@ -246,7 +246,29 @@ struct EventFilteringPluginTests {
         ])
         
         #expect(plugin.intercept(event: TrackEvent(event: "Valid Event12")) != nil)
-        #expect(plugin.intercept(event: TrackEvent(event: "Other Event")) != nil)
+        #expect(plugin.intercept(event: TrackEvent(event: "Other Event")) == nil)
+    }
+
+    @Test("Given a whitelist rule, When a refresh has an entry without an event name, Then the previous rule is kept")
+    func testRefreshWithMissingEventNameKeepsRule() {
+        let analytics = createAnalytics()
+        let plugin = createPlugin()
+        plugin.setup(analytics: analytics)
+        plugin.updateConfiguration(destinationConfig: [
+            "eventFilteringOption": "whitelistedEvents",
+            "whitelistedEvents": [["eventName": "Event A"]]
+        ])
+
+        plugin.updateConfiguration(destinationConfig: [
+            "eventFilteringOption": "whitelistedEvents",
+            "whitelistedEvents": [
+                ["eventName": "Event B"],
+                ["invalidKey": "Invalid Entry"]
+            ]
+        ])
+
+        #expect(plugin.intercept(event: TrackEvent(event: "Event A")) != nil)
+        #expect(plugin.intercept(event: TrackEvent(event: "Event B")) == nil)
     }
     
     @Test("Given a whitelist with a blank event name, When intercepting events, Then the blank entry is skipped and the rest of the rule applies")

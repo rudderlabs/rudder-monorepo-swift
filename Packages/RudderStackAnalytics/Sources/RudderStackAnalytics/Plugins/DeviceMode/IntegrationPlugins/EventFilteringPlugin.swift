@@ -30,7 +30,8 @@ final class EventFilteringPlugin: Plugin {
     var analytics: Analytics?
     
     private let destinationKey: String
-    @Synchronized private var filteringRule = FilteringRule.none
+    /// `nil` until the first configuration arrives, so an invalid first list still gives the result it always gave.
+    @Synchronized private var filteringRule: FilteringRule?
     private var cancellables = Set<AnyCancellable>()
     
     /**
@@ -89,7 +90,7 @@ extension EventFilteringPlugin {
      - Returns: `true` if the event should be dropped, `false` otherwise.
      */
     private func shouldDropEvent(eventName: String) -> Bool {
-        let rule = filteringRule
+        guard let rule = filteringRule else { return false }
         switch rule.option {
         case EventFilteringPluginConstants.allowListEventsKey:
             return !rule.events.contains(eventName)
@@ -150,7 +151,12 @@ extension EventFilteringPlugin {
 
         // A malformed list keeps the last valid rule.
         if !hasValidFilteringArray(filteringOption: newFilteringOption, destinationConfig: destinationConfig) {
-            logger.debug(log: "EventFilteringPlugin: Malformed configuration detected for destination: \(destinationKey), keeping the previous filtering rule")
+            guard filteringRule == nil else {
+                logger.debug(log: "EventFilteringPlugin: Malformed configuration detected for destination: \(destinationKey), keeping the previous filtering rule")
+                return
+            }
+            logger.debug(log: "EventFilteringPlugin: Malformed configuration detected for destination: \(destinationKey), applying its valid entries")
+            filteringRule = firstRuleFromInvalidList(filteringOption: newFilteringOption, destinationConfig: destinationConfig)
             return
         }
 
@@ -180,6 +186,16 @@ extension EventFilteringPlugin {
         guard let entries = destinationConfig[listKey] as? [[String: Any]] else { return false }
         // One invalid entry rejects the whole list, so a partly read list never replaces a valid rule.
         return entries.allSatisfy { $0[EventFilteringPluginConstants.eventNameKey] is String }
+    }
+    
+    /**
+     The rule for an invalid list in the first configuration: its valid event names, or no filter when the list is
+     not an array. This is the result the plugin gave before it kept the last valid rule.
+     */
+    private func firstRuleFromInvalidList(filteringOption: String, destinationConfig: [String: Any]) -> FilteringRule {
+        guard destinationConfig[filteringOption] is [[String: Any]] else { return .none }
+        let events = getEventFilteringList(eventFilteringOption: filteringOption, destinationConfig: destinationConfig)
+        return FilteringRule(option: filteringOption, events: Set(events))
     }
     
     /**

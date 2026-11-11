@@ -127,7 +127,8 @@ class EventUploaderTests {
             return (statusCode: 400, data: nil, headers: nil)
         }
         
-        await eventUploader.uploadBatch(dataItem.batch, reference: dataItem.reference)
+        let outcome = await eventUploader.uploadBatch(dataItem.batch, reference: dataItem.reference)
+        #expect(outcome == .done)
         
         #expect(mockStorage.batchCount == 0) // Batches should be deleted
     }
@@ -303,7 +304,8 @@ class EventUploaderTests {
             return (statusCode: 404, data: nil, headers: nil)
         }
         
-        await eventUploader.uploadBatch(dataItem.batch, reference: dataItem.reference)
+        let outcome = await eventUploader.uploadBatch(dataItem.batch, reference: dataItem.reference)
+        #expect(outcome == .paused)
         
         #expect(callCount == 1) // Should not have retried
         #expect(!uploadChannel.isClosed)
@@ -335,7 +337,8 @@ class EventUploaderTests {
             return (statusCode: 502, data: nil, headers: nil)
         }
         
-        await eventUploader.uploadBatch(dataItem.batch, reference: dataItem.reference)
+        let outcome = await eventUploader.uploadBatch(dataItem.batch, reference: dataItem.reference)
+        #expect(outcome == .paused)
         
         #expect(callCount == 1)
         #expect(mockStorage.batchCount == 1)
@@ -439,7 +442,8 @@ class EventUploaderTests {
             return (statusCode: 200, data: successResponse, headers: ["Content-Type": "application/json"])
         }
         
-        await eventUploader.uploadBatch(dataItem.batch, reference: dataItem.reference)
+        let outcome = await eventUploader.uploadBatch(dataItem.batch, reference: dataItem.reference)
+        #expect(outcome == .done)
         
         #expect(callCount == 1) // Should only be called once
         #expect(mockStorage.batchCount == 0)

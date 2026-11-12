@@ -7,7 +7,9 @@
 #    stages the regenerated markers and generated files into the SAME
 #    commit (D15). Other commits run no sync. It refuses first when those
 #    files (or the generated ones) have unstaged changes.
-# 2. Runs SwiftLint on staged Swift files (if SwiftLint is installed).
+# 2. Refuses staged trailing whitespace and blank lines at the end of a
+#    file: the release commits each export with the same check.
+# 3. Runs SwiftLint on staged Swift files (if SwiftLint is installed).
 #
 # NOTE: This hook intentionally does NOT use `set -e`.
 # `set -e` would cause the script to exit immediately on any error,
@@ -95,7 +97,19 @@ if [ $((manifest + packages + allowlist + shared)) -gt 0 ]; then
     fi
 fi
 
-# ── 2. SwiftLint on staged Swift files ───────────────────────
+# ── 2. Whitespace ────────────────────────────────────────────
+
+# The release commits each export with `git diff --cached --check` (scripts/common.py): a staged trailing
+# space or blank line at the end of a file would fail the publication, so it is refused here.
+if ! whitespace=$(git diff --cached --check); then
+    echo "$whitespace"
+    echo ""
+    echo "[ERROR] Trailing whitespace or blank lines at the end of a file (see above)."
+    echo "        Remove them, stage the files again, and commit."
+    exit 1
+fi
+
+# ── 3. SwiftLint on staged Swift files ───────────────────────
 
 # Enumerate staged Swift files once into a temp list (null-delimited).
 # -z produces NUL-separated paths — safe for filenames with spaces, newlines,

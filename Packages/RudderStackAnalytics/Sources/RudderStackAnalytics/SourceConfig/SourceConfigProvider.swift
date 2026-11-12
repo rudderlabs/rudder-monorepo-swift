@@ -19,7 +19,7 @@ class SourceConfigProvider: TypeIdentifiable {
     
     private var connectivityMonitor: Connectivity? = Connectivity()
     @Synchronized private(set) var refreshIntervalInMillis: UInt64
-    
+
     @Synchronized private var launchFetchTask: Task<Void, Never>?
     private let launchFetchEnded = CurrentValueSubject<Bool, Never>(false)
     @Synchronized private var refreshTask: Task<Void, Never>?
@@ -51,12 +51,12 @@ class SourceConfigProvider: TypeIdentifiable {
             launchFetchEnded.send(true)
         }
     }
-    
+
     private func fetchAndNotifyObservers(download: (SourceConfigProvider) async -> SourceConfig?) async {
         let downloadedSourceConfig = await download(self)
         // A cancelled refresh applies nothing and records no end, so the next foreground fetches at once.
         guard !Task.isCancelled else { return }
-        
+
         if let downloadedSourceConfig {
             self.analytics?.storage.write(value: downloadedSourceConfig.jsonString, key: Constants.storageKeys.sourceConfig)
             self.notifyObservers(config: downloadedSourceConfig)
@@ -76,12 +76,12 @@ class SourceConfigProvider: TypeIdentifiable {
             return
         }
     }
-    
+
     private static var currentTimeInMillis: UInt64 {
         let millisecondsPerSecond: Double = 1_000
         return UInt64(Date().timeIntervalSince1970 * millisecondsPerSecond)
     }
-    
+
     deinit {
         self.launchFetchTask?.cancel()
         self.refreshTask?.cancel()
@@ -90,29 +90,29 @@ class SourceConfigProvider: TypeIdentifiable {
 
 // MARK: - Periodic Refresh
 extension SourceConfigProvider: LifecycleEventListener {
-    
+
     func onForeground() {
         self.startPeriodicRefresh()
     }
-    
+
     func onBackground() {
         self.stopPeriodicRefresh()
     }
-    
+
     func startPeriodicRefresh() {
         $refreshTask.modify { refreshTask in
             guard refreshTask == nil else { return }
             refreshTask = self.refreshPeriodically()
         }
     }
-    
+
     func stopPeriodicRefresh() {
         $refreshTask.modify { refreshTask in
             refreshTask?.cancel()
             refreshTask = nil
         }
     }
-    
+
     /** Sets a shorter interval for the E2E rig, with a minimum of one minute, and restarts a running loop. */
     func setRefreshIntervalForTesting(milliseconds: UInt64) {
         self.refreshIntervalInMillis = max(milliseconds, Self.minTestRefreshIntervalInMillis)
@@ -122,12 +122,12 @@ extension SourceConfigProvider: LifecycleEventListener {
             refreshTask = self.refreshPeriodically()
         }
     }
-    
+
     private func refreshPeriodically() -> Task<Void, Never> {
         // The loop waits on the end signal, not on the launch task: cancelling a wait on `Task.value` does not stop it.
         let launchFetchEnded = self.launchFetchTask == nil ? nil : self.launchFetchEnded.eraseToAnyPublisher()
         let connectivityState = self.connectivityMonitor?.connectivityState
-        
+
         // Holds no strong reference while it waits, so the provider can deinit and cancel the loop.
         return Task { [weak self] in
             await Self.waitUntilTrue(launchFetchEnded)
@@ -144,11 +144,11 @@ extension SourceConfigProvider: LifecycleEventListener {
             }
         }
     }
-    
+
     private func timeUntilNextRefresh() -> UInt64 {
         return Self.timeUntilNextFetch(lastFetchEndInMillis: self.lastFetchEndInMillis, nowInMillis: Self.currentTimeInMillis, intervalInMillis: self.refreshIntervalInMillis)
     }
-    
+
     /** A clock that moved back counts as due. */
     static func timeUntilNextFetch(lastFetchEndInMillis: UInt64?, nowInMillis: UInt64, intervalInMillis: UInt64) -> UInt64 {
         guard let lastFetchEndInMillis, nowInMillis >= lastFetchEndInMillis else { return 0 }
@@ -204,14 +204,14 @@ extension SourceConfigProvider {
         switch await self.httpClient.getConfigurationData() {
         case .success(let data):
             return self.handleSourceConfigResponse(data: data)
-            
+
         case .failure(let error):
             // A refresh never shuts down the SDK: uploads and the next launch already handle an invalid write key.
             analytics?.logger.error(log: "\(className): Error refreshing SourceConfig: \(error.errorDescription). Keeping the current config", error: error)
             return nil
         }
     }
-    
+
     private func handleSourceConfigResponse(data: Data) -> SourceConfig? {
         do {
             let sourceConfig = try JSONDecoder().decode(SourceConfig.self, from: data)

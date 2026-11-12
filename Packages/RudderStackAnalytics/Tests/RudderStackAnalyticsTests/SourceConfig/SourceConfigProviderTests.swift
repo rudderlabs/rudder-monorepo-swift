@@ -368,13 +368,13 @@ extension SourceConfigProviderTests {
 @Suite("SourceConfigProvider periodic refresh Tests", .serialized)
 class SourceConfigProviderRefreshTests {
     private static let intervalInMillis: UInt64 = 2_000
-    
+
     private let mockStorage = MockStorage()
     private let requestCounter = RequestCounter()
     private var analytics: Analytics?
     /// This instance's control plane host, so other tests' requests do not reach its handler.
     private let host = "\(UUID().uuidString.lowercased()).controlplane.test"
-    
+
     deinit {
         MockProvider.teardownMockURLSession(host: host)
         let storage = self.mockStorage
@@ -382,7 +382,7 @@ class SourceConfigProviderRefreshTests {
             await storage.removeAll()
         }
     }
-    
+
     /** Returns a provider with a short interval, after the SDK's own launch fetch has stored its config. */
     private func makeProvider(refreshStatusCode: Int = 200, refreshResponseDelay: TimeInterval = 0) async -> (Analytics, SourceConfigProvider) {
         let counter = self.requestCounter
@@ -404,77 +404,77 @@ class SourceConfigProviderRefreshTests {
         analytics.sourceConfigProvider?.stopPeriodicRefresh()
         analytics.lifecycleObserver?.handle(.background)
         counter.reset()
-        
+
         let provider = SourceConfigProvider(analytics: analytics, refreshIntervalInMillis: Self.intervalInMillis)
         provider.fetchConfigAtLaunchAndNotifyObservers()
         await waitUntil { provider.lastFetchEndInMillis != nil }
         return (analytics, provider)
     }
-    
+
     private func waitUntil(timeout: TimeInterval = 5.0, _ condition: () -> Bool) async {
         let deadline = Date().addingTimeInterval(timeout)
         while !condition() && Date() < deadline {
             try? await Task.sleep(nanoseconds: MockStorage.pollInterval)
         }
     }
-    
+
     private func sleep(milliseconds: UInt64) async {
         try? await Task.sleep(nanoseconds: milliseconds * 1_000_000)
     }
-    
+
     @Test("given a long foreground session, when the loop runs, then no refresh happens before the interval and one happens after it")
     func testForegroundSessionRefreshesOncePerInterval() async {
         let (analytics, provider) = await makeProvider()
         analytics.lifecycleObserver?.addObserver(provider)
         analytics.lifecycleObserver?.handle(.foreground)
-        
+
         await sleep(milliseconds: Self.intervalInMillis / 2)
         #expect(requestCounter.count == 1)
-        
+
         await waitUntil { self.requestCounter.count == 2 }
         #expect(requestCounter.count == 2)
         provider.stopPeriodicRefresh()
     }
-    
+
     @Test("given the app is in the background, when it returns after the interval, then the provider fetches at once, and a quick return does not fetch")
     func testBackgroundThenReturn() async {
         let (analytics, provider) = await makeProvider()
         analytics.lifecycleObserver?.addObserver(provider)
-        
+
         await sleep(milliseconds: Self.intervalInMillis * 3 / 2)
         #expect(requestCounter.count == 1)
-        
+
         let launchFetchEnd = provider.lastFetchEndInMillis
         analytics.lifecycleObserver?.handle(.foreground)
         await waitUntil(timeout: Double(Self.intervalInMillis) / 2_000) { provider.lastFetchEndInMillis != launchFetchEnd }
         #expect(requestCounter.count == 2)
-        
+
         analytics.lifecycleObserver?.handle(.background)
         analytics.lifecycleObserver?.handle(.foreground)
         await sleep(milliseconds: Self.intervalInMillis / 2)
         #expect(requestCounter.count == 2)
         provider.stopPeriodicRefresh()
     }
-    
+
     @Test("given a refresh is in flight, when the app goes to the background, then the fetch records no end and the next foreground fetches at once")
     func testCancelledRefreshRecordsNoEnd() async {
         let (analytics, provider) = await makeProvider(refreshResponseDelay: 0.5)
         analytics.lifecycleObserver?.addObserver(provider)
         await sleep(milliseconds: Self.intervalInMillis)
         let launchFetchEnd = provider.lastFetchEndInMillis
-        
+
         analytics.lifecycleObserver?.handle(.foreground)
         await waitUntil { self.requestCounter.count == 2 }
         analytics.lifecycleObserver?.handle(.background)
         await sleep(milliseconds: 800) // Longer than the response delay, so the cancelled fetch has ended
         #expect(provider.lastFetchEndInMillis == launchFetchEnd)
-        
+
         analytics.lifecycleObserver?.handle(.foreground)
         await waitUntil { self.requestCounter.count == 3 }
         provider.stopPeriodicRefresh()
         #expect(requestCounter.count == 3)
     }
-    
+
     @Test("given the launch fetch is still running, when the loop starts, then the loop waits for it and does not fetch at once")
     func testLoopWaitsForLaunchFetch() async {
         let (analytics, _) = await makeProvider()
@@ -486,42 +486,42 @@ class SourceConfigProviderRefreshTests {
             return (200, try JSONSerialization.data(withJSONObject: MockProvider.sourceConfigurationDictionary ?? [:]), ["Content-Type": "application/json"])
         }
         let provider = SourceConfigProvider(analytics: analytics, refreshIntervalInMillis: Self.intervalInMillis)
-        
+
         provider.fetchConfigAtLaunchAndNotifyObservers()
         provider.startPeriodicRefresh()
         await waitUntil { provider.lastFetchEndInMillis != nil }
         await sleep(milliseconds: Self.intervalInMillis / 2)
         provider.stopPeriodicRefresh()
-        
+
         #expect(counter.count == 1)
     }
-    
+
     @Test("given a refresh returns 400, when the loop runs, then the SDK keeps its config and does not shut down")
     func testRefreshWith400KeepsConfig() async {
         let (analytics, provider) = await makeProvider(refreshStatusCode: 400)
         let configBeforeRefresh = analytics.sourceConfigState.value
-        
+
         let launchFetchEnd = provider.lastFetchEndInMillis
         provider.startPeriodicRefresh()
         await waitUntil { provider.lastFetchEndInMillis != launchFetchEnd }
         provider.stopPeriodicRefresh()
-        
+
         #expect(requestCounter.count == 2) // One attempt, no backoff retries
         #expect(!analytics.isAnalyticsShutdown)
         #expect(analytics.sourceConfigState.value == configBeforeRefresh)
     }
-    
+
     @Test("given an interval below one minute, when the test hook sets it, then the provider uses one minute")
     func testRefreshIntervalForTestingHasMinimum() async {
         let (_, provider) = await makeProvider()
-        
+
         provider.setRefreshIntervalForTesting(milliseconds: 1)
         #expect(provider.refreshIntervalInMillis == SourceConfigProvider.minTestRefreshIntervalInMillis)
-        
+
         provider.setRefreshIntervalForTesting(milliseconds: 120_000)
         #expect(provider.refreshIntervalInMillis == 120_000)
     }
-    
+
     @Test("given a last fetch end, a current time, and an interval, when the delay is computed, then it is the time left, or zero when due",
           arguments: [
             (lastFetchEnd: UInt64?.none, now: UInt64(5_000), expected: UInt64(0)),
@@ -539,9 +539,9 @@ class SourceConfigProviderRefreshTests {
 private final class RequestCounter: @unchecked Sendable {
     private let lock = NSLock()
     private var value = 0
-    
+
     var count: Int { lock.withLock { value } }
-    
+
     @discardableResult
     func increment() -> Int {
         lock.withLock {
@@ -549,6 +549,6 @@ private final class RequestCounter: @unchecked Sendable {
             return value
         }
     }
-    
+
     func reset() { lock.withLock { value = 0 } }
 }

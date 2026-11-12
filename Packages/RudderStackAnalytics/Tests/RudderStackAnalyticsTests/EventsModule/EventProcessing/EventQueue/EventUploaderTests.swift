@@ -321,12 +321,12 @@ class EventUploaderTests {
         }
         await mockStorage.write(event: mockEventJson)
         await mockStorage.rollover()
-        
+
         guard let dataItem = await mockStorage.read().dataItems.first else {
             Issue.record("\(EventUploaderTestsIssue.readStorageDataItem)")
             return
         }
-        
+
         var callCount = 0
         let sourceConfigState = analytics.sourceConfigState
         MockProvider.setupMockURLSession()
@@ -336,14 +336,14 @@ class EventUploaderTests {
             sourceConfigState.dispatch(action: DisableSourceConfigAction())
             return (statusCode: 502, data: nil, headers: nil)
         }
-        
+
         let outcome = await eventUploader.uploadBatch(dataItem.batch, reference: dataItem.reference)
         #expect(outcome == .paused)
-        
+
         #expect(callCount == 1)
         #expect(mockStorage.batchCount == 1)
     }
-    
+
     @Test("given EventUploader with non-retryable error 413, when upload batch, then does not retry")
     func testUploadBatchWithNonRetryableError413DoesNotRetry() async throws {
         guard let mockEventJson = MockProvider.mockTrackEvent.jsonString else {

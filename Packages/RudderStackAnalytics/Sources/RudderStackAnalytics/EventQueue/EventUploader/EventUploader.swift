@@ -116,7 +116,7 @@ extension EventUploader {
                 isSourceNotFound = (error as? NonRetryableEventUploadError) == .error404
             }
         } while shouldRetry && self.isSourceEnabled
-        
+
         // The source became disabled during the retries; the retry headers stay for the next attempt.
         if shouldRetry {
             await self.backoff.reset()
@@ -215,7 +215,7 @@ extension EventUploader {
     private var isSourceEnabled: Bool {
         return self.analytics.sourceConfigState.value.source.isSourceEnabled
     }
-    
+
     private var currentTimeInMillis: UInt64 {
         let millisecondsPerSecond: Double = 1_000
         return UInt64(Date().timeIntervalSince1970 * millisecondsPerSecond)

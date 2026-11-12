@@ -1,0 +1,9 @@
+# Editors that read EditorConfig trim trailing whitespace on save. The release commits each export with
+# `git diff --cached --check`, and the pre-commit hook and CI run the same check.
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true

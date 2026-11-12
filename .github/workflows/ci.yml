@@ -87,12 +87,18 @@ jobs:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
         with:
           persist-credentials: false
+          fetch-depth: 2  # HEAD^1: the PR base (merge checkout) or the pushed-over commit
       - name: Install SwiftLint
         run: command -v swiftlint || HOMEBREW_NO_AUTO_UPDATE=1 brew install swiftlint
       # The root .swiftlint.yml excludes Tests/ (fixtures are test data), Examples/ and manifests.
       # With no lintable files (no packages yet) this passes.
       - name: SwiftLint
         run: python3 scripts/package_ci.py lint --all --strict --reporter github-actions-logging
+      # The release commits each export with `git diff --cached --check` (scripts/common.py), so trailing whitespace
+      # or a blank line at the end of a file fails the publication. The PR's own lines are checked here instead.
+      - name: Whitespace
+        if: ${{ !cancelled() }}
+        run: git diff --check HEAD^1 HEAD
 
   test:
     name: test (${{ matrix.package }})

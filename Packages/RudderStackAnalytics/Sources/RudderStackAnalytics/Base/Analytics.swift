@@ -540,10 +540,10 @@ extension Analytics {
 // MARK: - Testing
 
 extension Analytics {
-    
+
     /**
      Sets a shorter source config refresh interval, for the E2E rig only. The minimum is one minute.
-     
+
      It is not part of the public API: a caller needs `@_spi(Testing) import RudderStackAnalytics`.
      */
     @_spi(Testing)

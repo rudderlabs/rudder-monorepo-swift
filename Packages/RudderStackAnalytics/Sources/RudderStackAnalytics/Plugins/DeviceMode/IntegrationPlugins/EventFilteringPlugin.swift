@@ -191,7 +191,7 @@ extension EventFilteringPlugin {
             return eventName is String || eventName is URL || eventName is Date
         }
     }
-    
+
     /**
      The rule for an invalid list in the first configuration: its valid event names, or no filter when the list is
      not an array. This is the result the plugin gave before it kept the last valid rule.

@@ -149,6 +149,20 @@ struct FacebookIntegrationTests {
         #expect(updateCall.state == 1000)
     }
 
+    @Test("given limited data use is on, when the destination is disabled and update gets an empty config, then the data processing options stay")
+    func testUpdateWithEmptyConfigKeepsDataProcessingOptions() throws {
+        let (integration, _, mockSettings) = createIntegrationWithMocks()
+        try integration.create(destinationConfig: ["limitedDataUse": true, "dpoState": 1000, "dpoCountry": 1])
+
+        try integration.update(destinationConfig: [:])
+        #expect(mockSettings.setDataProcessingOptionsCalls.count == 1)
+        #expect(mockSettings.setDataProcessingOptionsCalls[0].options == ["LDU"])
+
+        try integration.update(destinationConfig: ["limitedDataUse": false])
+        #expect(mockSettings.setDataProcessingOptionsCalls.count == 2)
+        #expect(mockSettings.setDataProcessingOptionsCalls[1].options.isEmpty)
+    }
+
     @Test("given integration is reset, when reset is called, then user data is cleared")
     func testReset() throws {
         let (integration, mockAppEvents, _) = createIntegrationWithMocks()

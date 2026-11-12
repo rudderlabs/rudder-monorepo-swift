@@ -197,7 +197,7 @@ class EventQueueSourceReEnableTests {
     @Synchronized var postCount = 0
     /// This instance's data plane host, so other tests' requests do not reach its handler.
     let host = "\(UUID().uuidString.lowercased()).dataplane.test"
-    
+
     deinit {
         MockProvider.teardownMockURLSession(host: host)
         let storage = mockStorage
@@ -205,7 +205,7 @@ class EventQueueSourceReEnableTests {
             await storage.removeAll()
         }
     }
-    
+
     private func makeAnalytics(statusCodes: [Int]) -> Analytics {
         let config = MockProvider.createMockConfiguration(dataPlaneUrl: "https://\(host)", storage: mockStorage)
         config.trackApplicationLifecycleEvents = false
@@ -226,31 +226,31 @@ class EventQueueSourceReEnableTests {
         analytics.isAnalyticsActive = true
         return analytics
     }
-    
+
     private func waitUntil(_ condition: () -> Bool) async {
         let deadline = Date().addingTimeInterval(15.0)
         while !condition() && Date() < deadline {
             try? await Task.sleep(nanoseconds: MockStorage.pollInterval)
         }
     }
-    
+
     @Test("given a 404 disabled the source, when the source is enabled again, then the stored batch uploads once")
     func testReEnableUploadsStoredBatchOnce() async {
         let analytics = makeAnalytics(statusCodes: [404, 200])
         analytics.track(name: "re_enable_test")
         await mockStorage.waitForCurrentBatchEvents()
-        
+
         analytics.flush()
         await waitUntil { !analytics.sourceConfigState.value.source.isSourceEnabled }
         #expect(mockStorage.batchCount == 1)
-        
+
         analytics.sourceConfigState.dispatch(action: UpdateSourceConfigAction(updatedSourceConfig: .initialState()))
         await waitUntil { mockStorage.batchCount == 0 }
-        
+
         #expect(mockStorage.batchCount == 0)
         #expect(postCount == 2)
     }
-    
+
     @Test("given a stored batch and an enabled source, when the SDK starts, then the queue sends no flush")
     func testFirstValueDoesNotFlush() async {
         guard let mockEventJson = MockProvider.mockTrackEvent.jsonString else {
@@ -259,10 +259,10 @@ class EventQueueSourceReEnableTests {
         }
         await mockStorage.write(event: mockEventJson)
         await mockStorage.rollover()
-        
+
         let analytics = makeAnalytics(statusCodes: [200])
         try? await Task.sleep(nanoseconds: 1_000_000_000)
-        
+
         withExtendedLifetime(analytics) {}
         #expect(postCount == 0)
         #expect(mockStorage.batchCount == 1)

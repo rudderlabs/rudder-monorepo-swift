@@ -329,6 +329,18 @@ class PreCommitTests(unittest.TestCase):
         self.assertEqual(self.committed(), ["Tests/DemoTests/DemoTests.swift"])
         self.assertNotIn("Syncing", result.stdout + result.stderr)
 
+    def test_trailing_whitespace_is_refused(self):
+        # The release commits each export with `git diff --cached --check`; the hook catches it at commit time.
+        path = self.root / "Tests/DemoTests/DemoTests.swift"
+        path.write_text(path.read_text() + "\n    \n// source change\n")
+        result = self.commit("test: note", "Tests/DemoTests/DemoTests.swift")
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("trailing whitespace", result.stdout + result.stderr)
+        self.assertEqual(git(self.root, "log", "-1", "--format=%s"), "chore: baseline")
+        path.write_text(path.read_text().replace("\n    \n", "\n\n"))
+        result = self.commit("test: note", "Tests/DemoTests/DemoTests.swift")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
     def test_bad_message_is_rejected(self):
         (self.root / "README.md").write_text("# Demo\n")
         result = self.commit("Update readme", "README.md")

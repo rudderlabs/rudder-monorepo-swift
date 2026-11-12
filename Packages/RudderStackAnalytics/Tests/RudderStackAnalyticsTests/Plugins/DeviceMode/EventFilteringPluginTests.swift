@@ -270,7 +270,7 @@ struct EventFilteringPluginTests {
         #expect(plugin.intercept(event: TrackEvent(event: "Event A")) != nil)
         #expect(plugin.intercept(event: TrackEvent(event: "Event B")) == nil)
     }
-    
+
     @Test("Given a whitelist with a blank event name, When intercepting events, Then the blank entry is skipped and the rest of the rule applies")
     func testUpdateConfigurationSkipsBlankEventName() {
         let analytics = createAnalytics()

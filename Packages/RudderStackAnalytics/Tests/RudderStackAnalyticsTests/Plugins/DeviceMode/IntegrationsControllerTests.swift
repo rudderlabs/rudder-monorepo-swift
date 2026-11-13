@@ -321,4 +321,54 @@ struct IntegrationsControllerTests {
         // No way to directly test deinit, but this ensures no retain cycles
         #expect(controller == nil)
     }
+
+    // MARK: - Disabled or Missing Destination
+
+    // Integrations such as Facebook rely on this empty update to keep their privacy settings: it means "paused", not "cleared".
+    @Test("Given a created standard integration, When the next source config disables its destination or no longer has it, Then update gets an empty config", arguments: [false, true])
+    func testDisabledOrMissingDestinationUpdatesWithEmptyConfig(destinationMissing: Bool) throws {
+        let controller = try #require(analytics.integrationsController)
+        let mockPlugin = MockStandardIntegrationPlugin(key: mockPluginKey)
+        controller.add(integration: mockPlugin)
+
+        controller.initDestination(sourceConfig: makeSourceConfig(destinations: [makeDestination(isEnabled: true)]), integration: mockPlugin)
+        #expect(mockPlugin.createCalled)
+        #expect(mockPlugin.lastDestinationConfig?["apiKey"] as? String == "mock-api-key")
+
+        let next = makeSourceConfig(destinations: destinationMissing ? [] : [makeDestination(isEnabled: false)])
+        controller.initDestination(sourceConfig: next, integration: mockPlugin)
+
+        #expect(mockPlugin.updateCalled)
+        #expect(mockPlugin.lastDestinationConfig?.isEmpty == true)
+        #expect(controller.integrationPluginStores[mockPluginKey]?.isDestinationReady == false)
+    }
+
+    private func makeDestination(isEnabled: Bool) -> Destination {
+        Destination(
+            destinationId: "dest-1",
+            destinationName: mockPluginKey,
+            isDestinationEnabled: isEnabled,
+            destinationConfig: ["apiKey": AnyCodable("mock-api-key")],
+            destinationDefinitionId: "def-1",
+            destinationDefinition: DestinationDefinition(name: mockPluginKey, displayName: mockPluginKey),
+            updatedAt: "2026-01-01T00:00:00.000Z",
+            shouldApplyDeviceModeTransformation: false,
+            propagateEventsUntransformedOnError: true
+        )
+    }
+
+    private func makeSourceConfig(destinations: [Destination]) -> SourceConfig {
+        SourceConfig(
+            source: RudderServerConfigSource(
+                sourceId: "source-id",
+                sourceName: "source-name",
+                writeKey: "write-key",
+                isSourceEnabled: true,
+                workspaceId: "workspace-id",
+                updatedAt: "2026-01-01T00:00:00.000Z",
+                metricConfig: MetricsConfig(),
+                destinations: destinations
+            )
+        )
+    }
 }

@@ -409,6 +409,36 @@ struct EventFilteringPluginTests {
         #expect(plugin.intercept(event: TrackEvent(event: "Event B")) != nil)
     }
 
+    @Test("Given rules that replace each other on one thread, When events are filtered on other threads at the same time, Then every event sees one whole rule")
+    func testConcurrentRuleChangesNeverMixOptionAndEvents() {
+        let analytics = createAnalytics()
+        let plugin = createPlugin()
+        plugin.setup(analytics: analytics)
+
+        // Both rules let "Event A" through and drop "Event B". A rule read half old, half new
+        // (whitelist with ["Event B"], or blacklist with ["Event A"]) would flip both results.
+        let whitelistA: [String: Any] = ["eventFilteringOption": "whitelistedEvents",
+                                         "whitelistedEvents": [["eventName": "Event A"]]]
+        let blacklistB: [String: Any] = ["eventFilteringOption": "blacklistedEvents",
+                                         "blacklistedEvents": [["eventName": "Event B"]]]
+        plugin.updateConfiguration(destinationConfig: whitelistA)
+
+        let rounds = 20_000
+        let mixed = MixedReadCounter()
+        DispatchQueue.concurrentPerform(iterations: 5) { worker in
+            for round in 0..<rounds {
+                if worker == 0 {
+                    plugin.updateConfiguration(destinationConfig: round.isMultiple(of: 2) ? blacklistB : whitelistA)
+                } else if plugin.intercept(event: TrackEvent(event: "Event A")) == nil
+                            || plugin.intercept(event: TrackEvent(event: "Event B")) != nil {
+                    mixed.increment()
+                }
+            }
+        }
+
+        #expect(mixed.value == 0)
+    }
+
     @Test("Given a blacklist rule, When a configuration without the filtering option arrives, Then the rule is cleared")
     func testMissingFilteringOptionClearsRule() {
         let analytics = createAnalytics()
@@ -633,4 +663,14 @@ struct EventFilteringPluginTests {
             #expect(plugin.intercept(event: TrackEvent(event: nonWhitelistedEvent)) == nil)
         }
     }
+}
+
+/** A counter that several threads can increment. */
+private final class MixedReadCounter: @unchecked Sendable {
+    private let lock = NSLock()
+    private var count = 0
+
+    var value: Int { lock.withLock { count } }
+
+    func increment() { lock.withLock { count += 1 } }
 }

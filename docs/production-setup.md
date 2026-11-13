@@ -41,7 +41,7 @@ Two webhooks, so release and PR messages can go to different channels later. For
 | Where | Secret | Messages |
 |---|---|---|
 | Environment `spm-release` | `SLACK_RELEASE_WEBHOOK_URL` | a released package (after its customer install check passed); Tag & Release Packages left something incomplete |
-| Environment `notifications` | `SLACK_PR_WEBHOOK_URL` | every PR validation run, passed or failed |
+| Environment `notifications` (deployment branches: `main`) | `SLACK_PR_WEBHOOK_URL` | every PR validation run, passed or failed (`pr-slack-summary.yml`) |
 
 Environment secrets, not repository secrets: Release Please and Tag & Release Packages call Publish Package, and a called workflow gets repository secrets only when the caller passes them; its job's environment secrets it always gets. A missing webhook or a failed post is a warning only; it never fails a job.
 

@@ -35,7 +35,8 @@ A pull request runs only what it affects (`ci_plan.py --base <sha>`; try it loca
 - `LICENSE` and `release/templates/` re-export every package without tests; docs (`*.md`, `docs/`) select none.
 - `policy` runs only when `scripts/`, `release/`, `Tests/`, `.github/`, `Shared/`, `Makefile`, the root manifest or lock file, a `dependency-requirements.json`/`shared-source.json` marker or the Release Please files change. `lint` always runs.
 
-Advisory jobs outside `ci-ok`: `sonarcloud` (SonarCloud on the package folders; skipped until the repository variable `SONARCLOUD_ENABLED` is `true`) and `Slack PR summary` (one Slack message per PR run, passed or failed, with the failed job names; it never changes a check result).
+Advisory job outside `ci-ok`: `sonarcloud` (SonarCloud on the package folders; skipped until the repository variable `SONARCLOUD_ENABLED` is `true`).
+`pr-slack-summary.yml`: one Slack message per PR run, passed or failed, with the failed job names. It runs after PR Validation completes, with `main`'s workflow and scripts, never the PR's, and reads the PR and the job results from the GitHub API. It never changes a check result.
 `codeql.yml`: CodeQL for the workflows and for Swift (every package built for the iOS Simulator); advisory.
 `pr-title.yml`: `pr-title` (`rudderlabs/github-action-check-pr-title` v2; a subject must not start with a capital letter) and the warning-only `scope-hint`.
 Both workflows also run on PRs into maintenance branches `release/<key>-X.Y.x`, and `ci.yml` on pushes to them.

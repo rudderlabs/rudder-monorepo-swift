@@ -3,7 +3,7 @@ warning only. Message texts live in release/texts.json; no message links to the 
 
   release    one message per released package, after its customer install check passed (publish.yml)
   attention  Tag & Release Packages left something incomplete; silent otherwise (complete-publication.yml)
-  pr         every PR validation run, passed or failed (ci.yml)
+  pr         every PR validation run, passed or failed (pr-slack-summary.yml, after PR Validation completes)
 
 The webhook comes from SLACK_WEBHOOK_URL; each workflow maps it from its own secret (SLACK_RELEASE_WEBHOOK_URL or
 SLACK_PR_WEBHOOK_URL), so releases and PRs can move to different channels without a code change.
@@ -94,35 +94,47 @@ def attention_message(items):
     return text('slackAttention', count=len(items), noun=noun, items=lines)
 
 
-def failed_checks(jobs, own_name):
+def failed_checks(jobs):
     """Names of the run's failed, cancelled or timed-out jobs, e.g. `test (firebase)`. The `ci-ok` gate is listed only
     when nothing else failed: otherwise it just repeats the failure that caused it."""
-    failed = [job['name'] for job in jobs if job.get('conclusion') in FAILED and job.get('name') != own_name]
+    failed = [job['name'] for job in jobs if job.get('conclusion') in FAILED]
     others = [name for name in failed if name != 'ci-ok']
     return others or failed
 
 
-def pr_message(event, failed):
-    pull = event['pull_request']
+def pr_message(repository, pull, actor, failed):
     message = text('slackPullRequest', status='failed' if failed else 'passed', emoji='❌' if failed else '✅',
-                   repository=event['repository']['full_name'], number=pull['number'], title=escape(pull['title']),
-                   head=pull['head']['ref'], base=pull['base']['ref'], actor=event.get('sender', {}).get('login', ''),
-                   url=pull['html_url'])
+                   repository=repository, number=pull['number'], title=escape(pull['title']),
+                   head=pull['head']['ref'], base=pull['base']['ref'], actor=actor, url=pull['html_url'])
     if failed:
         message += '\n\n' + text('slackFailedChecks', checks='\n'.join('• ' + escape(name) for name in failed))
     return message
 
 
-def run_jobs():
-    """This run's jobs (current attempt) from the GitHub API. Raises when they cannot be read, so the caller posts
+def run_jobs(run_id, attempt):
+    """The jobs of one run attempt from the GitHub API. Raises when they cannot be read, so the caller posts
     nothing: an unread job list must never be announced as a passed run."""
-    endpoint = (f"repos/{os.environ['GITHUB_REPOSITORY']}/actions/runs/{os.environ['GITHUB_RUN_ID']}"
-                f"/attempts/{os.environ.get('GITHUB_RUN_ATTEMPT', '1')}/jobs?per_page=100")
+    endpoint = f"repos/{os.environ['GITHUB_REPOSITORY']}/actions/runs/{run_id}/attempts/{attempt}/jobs?per_page=100"
     jobs = [job for page in json.loads(run(['gh', 'api', '--paginate', '--slurp', endpoint]))
             for job in page.get('jobs', [])]
     if not jobs:
         raise RuntimeError('the run has no readable jobs')
     return jobs
+
+
+def run_pull_request(workflow_run):
+    """The PR of a finished PR Validation run, read from the GitHub API and never from the PR's files. GitHub lists no
+    PR on the run of a fork PR, so that PR is found by its head branch and checked against the run's commit."""
+    repository = os.environ['GITHUB_REPOSITORY']
+    numbers = [pull['number'] for pull in workflow_run.get('pull_requests') or []]
+    if not numbers:
+        head = f"{workflow_run['head_repository']['owner']['login']}:{workflow_run['head_branch']}"
+        found = json.loads(run(['gh', 'api', '--method', 'GET', f'repos/{repository}/pulls',
+                                '-f', 'state=open', '-f', f'head={head}']))
+        numbers = [pull['number'] for pull in found if pull['head']['sha'] == workflow_run['head_sha']]
+    if not numbers:
+        raise RuntimeError(f"no open pull request for commit {workflow_run['head_sha'][:12]}")
+    return json.loads(run(['gh', 'api', f'repos/{repository}/pulls/{numbers[0]}']))
 
 
 def download_jobs(plan, temp):
@@ -170,8 +182,10 @@ def main(argv=None):
             message = attention_message(attention_items(plan, json.loads(args.broken or '[]'), args.pending_result,
                                                         jobs, inventory()))
         else:
-            event = load(os.environ['GITHUB_EVENT_PATH'])
-            message = pr_message(event, failed_checks(run_jobs(), os.environ.get('SLACK_JOB_NAME', '')))
+            workflow_run = load(os.environ['GITHUB_EVENT_PATH'])['workflow_run']
+            failed = failed_checks(run_jobs(workflow_run['id'], workflow_run['run_attempt']))
+            message = pr_message(os.environ['GITHUB_REPOSITORY'], run_pull_request(workflow_run),
+                                 workflow_run['actor']['login'], failed)
     except Exception as error:  # noqa: BLE001 - a notification problem never fails the job
         print(f'::warning::Slack notification not built: {short(error)}')
         return 0

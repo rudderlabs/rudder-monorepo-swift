@@ -99,7 +99,7 @@ class CiPlanTests(unittest.TestCase):
                          {"test": ["sprig"], "export": self.every, "policy": True})
 
     def test_policy_runs_only_for_tooling_and_policy_inputs(self):
-        for path in ["scripts/dependabot_sync.py", "release/texts.json", "Tests/test_anchor.py", ".github/ISSUE_TEMPLATE/config.yml",
+        for path in ["scripts/slack_notify.py", "release/texts.json", "Tests/test_anchor.py", ".github/ISSUE_TEMPLATE/config.yml",
                      "Makefile", "Package.swift", "Package.resolved", ".release-please-manifest.json",
                      "release-please-config.json", "Integrations/Sprig/dependency-requirements.json",
                      "Integrations/Sprig/shared-source.json", "Shared/DemoShared/DemoNormalizer.swift"]:
@@ -107,7 +107,7 @@ class CiPlanTests(unittest.TestCase):
         for path in [self.sprig, "README.md", "LICENSE", "Examples/Sprig/ContentView.swift", ".gitignore"]:
             self.assertFalse(self.plan(path)["policy"], path)
         # A tooling script package_ci.py does not import changes no package job.
-        self.assertEqual(self.plan("scripts/dependabot_sync.py"), {"test": [], "export": [], "policy": True})
+        self.assertEqual(self.plan("scripts/slack_notify.py"), {"test": [], "export": [], "policy": True})
 
     def test_plan_only_changes_run_only_the_python_tests(self):
         # The plan, the path-to-package rules, the git hooks and the Makefile do not change how a package job runs.

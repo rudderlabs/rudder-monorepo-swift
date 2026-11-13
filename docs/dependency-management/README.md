@@ -42,7 +42,7 @@ Use the existing exporter and release-marker design. Do not add another version 
 1. Import every package and confirm the default branch of this repository and each public package repository.
 2. Resolve the source vendors from clean public URLs; review and commit the resolved file.
 3. Enable and verify the dependency graph and alerts. Record package identities and all findings before enabling updates.
-4. Copy the reviewed template to `.github/dependabot.yml` in this repository only; `dependabot-sync.yml` adds the release markers and a releasable title to each Dependabot PR that changes `Package.swift`.
+4. Copy the reviewed template to `.github/dependabot.yml` in this repository only. A Dependabot PR that changes `Package.swift` also needs its release markers: run `make sync` on its branch, push the result, and give the PR a releasable title, for example `fix(firebase): bump firebase-ios-sdk to 13.0.0`.
 5. Verify the first Dependabot PR changes the canonical dependency requirement, its markers, and only the affected packages' release intent.
 
 A benign vendor version update proves updater/export behavior, not security-fix behavior. Do not add a vulnerable dependency to force an alert.

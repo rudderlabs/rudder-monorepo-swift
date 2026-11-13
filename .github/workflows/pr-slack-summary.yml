@@ -1,0 +1,41 @@
+name: PR Slack Summary
+# One Slack message per PR Validation run of a pull request, passed or failed (same format as rudder-sdk-swift; no run
+# link). It runs after that run completes, from the default branch: the workflow, the checkout and the script are
+# main's, never the PR's. The PR and its job results come from the GitHub API. It never changes a check result.
+# SLACK_PR_WEBHOOK_URL is separate from the release webhook so PR messages can move to their own channel.
+on:
+  # workflow_run runs main's workflow; the job checks out main's commit and reads no PR files or artifacts.
+  workflow_run: # zizmor: ignore[dangerous-triggers]
+    workflows: [PR Validation]
+    types: [completed]
+permissions: {}
+concurrency:
+  group: pr-slack-summary-${{ github.event.workflow_run.id }}-${{ github.event.workflow_run.run_attempt }}
+  cancel-in-progress: false
+jobs:
+  notify:
+    name: Slack PR summary
+    if: github.event.workflow_run.event == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: notifications
+    permissions:
+      contents: read  # check out main's scripts and message texts
+      actions: read  # list the finished run's failed jobs, e.g. test (firebase)
+      pull-requests: read  # read the run's PR: title, branches, link
+    steps:
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@351661ca32ac09a36dc5ee2d536e3128f2a3c8ed # v2.22.0
+        with:
+          egress-policy: audit
+
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          ref: ${{ github.workflow_sha }}  # main's commit, never the PR's
+          persist-credentials: false
+      - name: Send Slack notification
+        continue-on-error: true
+        run: python3 scripts/slack_notify.py pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_PR_WEBHOOK_URL }}

@@ -92,9 +92,9 @@ class MatrixTests(unittest.TestCase):
         self.assertIn("needs: [packages, policy, lint, test, export]", block)
         jobs = [line[2:-1] for line in WORKFLOW.split("\njobs:\n", 1)[1].splitlines()
                 if line.startswith("  ") and not line.startswith("   ") and line.endswith(":")]
-        # sonarcloud and notify are advisory: outside ci-ok, so they never change the required check.
+        # sonarcloud is advisory: outside ci-ok, so it never changes the required check.
         self.assertEqual(sorted(jobs), sorted(["packages", "policy", "lint", "test", "export", "ci-ok",
-                                               "sonarcloud", "notify"]))
+                                               "sonarcloud"]))
 
     def test_sonarcloud_runs_only_when_enabled(self):
         block = WORKFLOW.split("\n  sonarcloud:\n", 1)[1].split("\n\n  ", 1)[0]

@@ -4,8 +4,8 @@ name: PR Validation
 # D34: the package jobs and `policy` run only for what a PR or push affects (ci_plan.py); a push compares with its
 # previous commit and runs all when that commit is unknown (new branch, force push).
 # `ci-ok` is the only required check: the matrix job names change as packages are added.
-# `sonarcloud` and `notify` stay outside `ci-ok` (advisory): Sonar becomes required once it is green, and the Slack
-# message never changes a check result.
+# `sonarcloud` stays outside `ci-ok` (advisory) until it is green. The Slack PR summary is pr-slack-summary.yml,
+# which runs after this workflow completes.
 # Every command lives in scripts/ (ci_plan.py, package_ci.py), so `make test` and `make lint` run the same commands.
 on:
   pull_request:
@@ -210,31 +210,3 @@ jobs:
         with:
           sonar_token: ${{ secrets.SONAR_TOKEN }}
           sources: ${{ steps.sources.outputs.list }}
-
-  notify:
-    # One Slack message per PR validation run, passed or failed (same format as rudder-sdk-swift; no run link).
-    # SLACK_PR_WEBHOOK_URL is separate from the release webhook so PR messages can move to their own channel.
-    name: Slack PR summary
-    if: always() && github.event_name == 'pull_request'
-    needs: [packages, policy, lint, test, export, sonarcloud, ci-ok]
-    runs-on: ubuntu-latest
-    environment: notifications
-    permissions:
-      contents: read
-      actions: read  # list this run's failed jobs, e.g. test (firebase)
-    steps:
-      - name: Harden the runner (Audit all outbound calls)
-        uses: step-security/harden-runner@351661ca32ac09a36dc5ee2d536e3128f2a3c8ed # v2.22.0
-        with:
-          egress-policy: audit
-
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
-        with:
-          persist-credentials: false
-      - name: Send Slack notification
-        continue-on-error: true
-        run: python3 scripts/slack_notify.py pr
-        env:
-          GH_TOKEN: ${{ github.token }}
-          SLACK_JOB_NAME: Slack PR summary
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_PR_WEBHOOK_URL }}

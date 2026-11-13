@@ -32,10 +32,19 @@ class Response:
         return False
 
 
-def event(title='fix(sprig): handle missing survey id'):
-    return {'repository': {'full_name': 'rudderlabs/rudder-monorepo-swift'}, 'sender': {'login': 'SKannaniOS'},
-            'pull_request': {'number': 12, 'title': title, 'html_url': 'https://github.com/rudderlabs/rudder-monorepo-swift/pull/12',
-                             'head': {'ref': 'fix/sprig-missing-survey-id'}, 'base': {'ref': 'main'}}}
+REPOSITORY = 'rudderlabs/rudder-monorepo-swift'
+
+
+def pull(title='fix(sprig): handle missing survey id', sha=SHA):
+    return {'number': 12, 'title': title, 'html_url': f'https://github.com/{REPOSITORY}/pull/12',
+            'head': {'ref': 'fix/sprig-missing-survey-id', 'sha': sha}, 'base': {'ref': 'main'}}
+
+
+def workflow_run(pull_requests=({'number': 12},)):
+    """The workflow_run event of a finished PR Validation run; a fork PR's run lists no pull_requests."""
+    return {'workflow_run': {'id': 77, 'run_attempt': 2, 'actor': {'login': 'SKannaniOS'}, 'head_sha': SHA,
+                             'head_branch': 'fix/sprig-missing-survey-id', 'pull_requests': list(pull_requests),
+                             'head_repository': {'owner': {'login': 'someone'}}}}
 
 
 class MessageTests(unittest.TestCase):
@@ -55,12 +64,12 @@ class MessageTests(unittest.TestCase):
         self.assertTrue(message.startswith(f"🚀 *{package['target']} 2.0.1* released"))
 
     def test_pr_message_passed_and_failed_without_run_links(self):
-        passed = pr_message(event(), [])
+        passed = pr_message(REPOSITORY, pull(), 'SKannaniOS', [])
         self.assertEqual(passed, "*PR Validation passed ✅*\n*Repository:* rudderlabs/rudder-monorepo-swift\n"
                                  "*PR:* #12 - fix(sprig): handle missing survey id\n"
                                  "*Branch:* fix/sprig-missing-survey-id → main\n*By:* SKannaniOS\n"
                                  "<https://github.com/rudderlabs/rudder-monorepo-swift/pull/12|View PR>")
-        failed = pr_message(event('feat: <b> & {x}'), ['test (firebase)', 'lint'])
+        failed = pr_message(REPOSITORY, pull('feat: <b> & {x}'), 'SKannaniOS', ['test (firebase)', 'lint'])
         self.assertTrue(failed.startswith('*PR Validation failed ❌*'))
         self.assertIn('#12 - feat: &lt;b&gt; &amp; {x}', failed)
         self.assertTrue(failed.endswith('🚨 *Failed Checks:*\n• test (firebase)\n• lint'))
@@ -68,12 +77,12 @@ class MessageTests(unittest.TestCase):
             self.assertNotIn('/actions/runs/', message)
             self.assertNotIn('Workflow Details', message)
 
-    def test_failed_checks_skip_this_job_and_the_gate_when_others_failed(self):
+    def test_failed_checks_skip_the_gate_when_others_failed(self):
         jobs = [{'name': 'test (firebase)', 'conclusion': 'failure'}, {'name': 'lint', 'conclusion': 'success'},
                 {'name': 'ci-ok', 'conclusion': 'failure'}, {'name': 'sonarcloud', 'conclusion': 'cancelled'},
-                {'name': 'Slack PR summary', 'conclusion': None}, {'name': 'export (sprig)', 'conclusion': 'skipped'}]
-        self.assertEqual(failed_checks(jobs, 'Slack PR summary'), ['test (firebase)', 'sonarcloud'])
-        self.assertEqual(failed_checks([{'name': 'ci-ok', 'conclusion': 'failure'}], 'x'), ['ci-ok'])
+                {'name': 'export (sprig)', 'conclusion': 'skipped'}]
+        self.assertEqual(failed_checks(jobs), ['test (firebase)', 'sonarcloud'])
+        self.assertEqual(failed_checks([{'name': 'ci-ok', 'conclusion': 'failure'}]), ['ci-ok'])
 
     def test_attention_lists_incomplete_items_and_is_silent_otherwise(self):
         plan = [{'package': 'sprig', 'version': '2.0.1', 'source_sha': SHA},
@@ -169,33 +178,47 @@ class CommandTests(unittest.TestCase):
         sent.assert_not_called()
         self.assertIn('Nothing needs attention', output.getvalue())
 
-    def test_pr_command_reads_the_event_and_the_run_jobs(self):
+    def run_pr(self, event, answers):
+        """main(['pr']) with `answers` as the `gh` outputs in call order; returns (gh calls, posted message or None)."""
         with tempfile.TemporaryDirectory() as temp:
             path = Path(temp) / 'event.json'
-            path.write_text(json.dumps(event()))
-            env = {'GITHUB_EVENT_PATH': str(path), 'SLACK_JOB_NAME': 'Slack PR summary'}
-            with patch.dict(os.environ, env), patch.object(slack_notify, 'run_jobs',
-                                                           return_value=[{'name': 'lint', 'conclusion': 'failure'}]), \
-                    patch.object(slack_notify, 'post') as sent, contextlib.redirect_stdout(io.StringIO()):
+            path.write_text(json.dumps(event))
+            env = {'GITHUB_EVENT_PATH': str(path), 'GITHUB_REPOSITORY': REPOSITORY}
+            with patch.dict(os.environ, env), patch.object(slack_notify, 'run', side_effect=answers) as gh, \
+                    patch.object(slack_notify, 'post') as sent, contextlib.redirect_stdout(io.StringIO()) as output:
                 self.assertEqual(main(['pr']), 0)
-        self.assertTrue(sent.call_args.args[0].startswith('*PR Validation failed ❌*'))
-        self.assertIn('• lint', sent.call_args.args[0])
+        self.output = output.getvalue()
+        return [call.args[0] for call in gh.call_args_list], (sent.call_args.args[0] if sent.called else None)
 
+    def test_pr_command_reads_the_finished_run_and_its_pull_request_from_the_api(self):
+        jobs = json.dumps([{'jobs': [{'name': 'lint', 'conclusion': 'failure'}]}])
+        calls, message = self.run_pr(workflow_run(), [jobs, json.dumps(pull())])
+        self.assertEqual(calls, [['gh', 'api', '--paginate', '--slurp',
+                                  f'repos/{REPOSITORY}/actions/runs/77/attempts/2/jobs?per_page=100'],
+                                 ['gh', 'api', f'repos/{REPOSITORY}/pulls/12']])
+        self.assertTrue(message.startswith('*PR Validation failed ❌*'))
+        self.assertIn('*PR:* #12 - fix(sprig): handle missing survey id', message)
+        self.assertIn('*By:* SKannaniOS', message)
+        self.assertIn('• lint', message)
 
-    def test_pr_command_posts_nothing_when_the_run_jobs_cannot_be_read(self):
-        with tempfile.TemporaryDirectory() as temp:
-            path = Path(temp) / 'event.json'
-            path.write_text(json.dumps(event()))
-            env = {'GITHUB_EVENT_PATH': str(path), 'GITHUB_REPOSITORY': 'rudderlabs/rudder-monorepo-swift',
-                   'GITHUB_RUN_ID': '1', 'SLACK_JOB_NAME': 'Slack PR summary'}
-            for failure in (RuntimeError('HTTP 403'), '[]', '[{"jobs": []}]'):
-                kwargs = {'side_effect': failure} if isinstance(failure, Exception) else {'return_value': failure}
-                with self.subTest(failure=failure), patch.dict(os.environ, env), \
-                        patch.object(slack_notify, 'run', **kwargs), patch.object(slack_notify, 'post') as sent, \
-                        contextlib.redirect_stdout(io.StringIO()) as output:
-                    self.assertEqual(main(['pr']), 0)
-                    sent.assert_not_called()
-                    self.assertIn('::warning::Slack notification not built', output.getvalue())
+    def test_pr_command_finds_a_fork_pull_request_by_its_head_branch_and_commit(self):
+        jobs = json.dumps([{'jobs': [{'name': 'lint', 'conclusion': 'success'}]}])
+        other = dict(pull(sha='b' * 40), number=13)
+        calls, message = self.run_pr(workflow_run(pull_requests=()), [jobs, json.dumps([other, pull()]),
+                                                                      json.dumps(pull())])
+        self.assertEqual(calls[1], ['gh', 'api', '--method', 'GET', f'repos/{REPOSITORY}/pulls', '-f', 'state=open',
+                                    '-f', 'head=someone:fix/sprig-missing-survey-id'])
+        self.assertEqual(calls[2], ['gh', 'api', f'repos/{REPOSITORY}/pulls/12'])
+        self.assertTrue(message.startswith('*PR Validation passed ✅*'))
+
+    def test_pr_command_posts_nothing_without_the_jobs_or_the_pull_request(self):
+        no_pull = [json.dumps([{'jobs': [{'name': 'lint', 'conclusion': 'success'}]}]), json.dumps([pull(sha='b' * 40)])]
+        for event, answers in ((workflow_run(), [RuntimeError('HTTP 403')]), (workflow_run(), ['[]']),
+                               (workflow_run(), ['[{"jobs": []}]']), (workflow_run(pull_requests=()), no_pull)):
+            with self.subTest(answers=answers):
+                _, message = self.run_pr(event, answers)
+                self.assertIsNone(message)
+                self.assertIn('::warning::Slack notification not built', self.output)
 
 class WorkflowTests(unittest.TestCase):
     def read(self, name):
@@ -203,6 +226,7 @@ class WorkflowTests(unittest.TestCase):
 
     def test_each_message_is_wired_with_its_own_webhook_and_never_fails_a_job(self):
         publish, complete, ci = self.read('publish.yml'), self.read('complete-publication.yml'), self.read('ci.yml')
+        summary = self.read('pr-slack-summary.yml')
         step = publish.split('- name: Announce the release in Slack\n', 1)[1].split('\n      - name:', 1)[0]
         self.assertIn("if: steps.verified.outputs.status == 'published' && steps.verified.outputs.takeover != 'true'", step)
         self.assertIn('continue-on-error: true', step)
@@ -212,15 +236,29 @@ class WorkflowTests(unittest.TestCase):
         self.assertIn("if: always() && needs.pending.result != 'skipped'", attention)
         self.assertIn('SLACK_WEBHOOK_URL: ${{ secrets.SLACK_RELEASE_WEBHOOK_URL }}', attention)
         self.assertIn('continue-on-error: true', attention)
-        notify = ci.split('\n  notify:\n', 1)[1]
-        self.assertIn("if: always() && github.event_name == 'pull_request'", notify)
+        self.assertNotIn('SLACK_PR_WEBHOOK_URL', ci)
+        notify = summary.split('\n  notify:\n', 1)[1]
+        self.assertIn("if: github.event.workflow_run.event == 'pull_request'", notify)
         self.assertIn('SLACK_WEBHOOK_URL: ${{ secrets.SLACK_PR_WEBHOOK_URL }}', notify)
         self.assertIn('continue-on-error: true', notify)
-        self.assertIn('SLACK_JOB_NAME: Slack PR summary', notify)
         self.assertIn('name: Slack PR summary', notify)
         # The required gate does not wait for, or depend on, the advisory jobs.
         gate = ci.split('\n  ci-ok:\n', 1)[1].split('\n\n  ', 1)[0]
         self.assertIn('needs: [packages, policy, lint, test, export]', gate)
+
+    def test_pr_summary_runs_main_code_after_pr_validation(self):
+        # The webhook is held only by a workflow_run job: GitHub runs it from the default branch, and it checks out
+        # that workflow's own commit. The PR's code is never checked out or run next to the secret.
+        summary = self.read('pr-slack-summary.yml')
+        self.assertIn('workflow_run: # zizmor: ignore[dangerous-triggers]\n    workflows: [PR Validation]\n'
+                      '    types: [completed]', summary)
+        self.assertEqual(self.read('ci.yml').split('\n', 1)[0], 'name: PR Validation')
+        self.assertIn('permissions: {}', summary)
+        self.assertIn('environment: notifications', summary)
+        self.assertEqual(summary.count('ref:'), 1)
+        self.assertIn('ref: ${{ github.workflow_sha }}', summary)
+        self.assertNotIn('pull_request_target', summary)
+        self.assertNotIn('actions/download-artifact', summary)
 
     def test_sanity_runs_only_for_the_sdk_and_reads_the_public_repo(self):
         publish = self.read('publish.yml')

@@ -55,7 +55,7 @@ Add packages with these commands, never by hand. The root `Package.swift` is the
 
 Adding a package needs only its `release/packages.json` entry, its allowlist entry, and the regenerated GitHub files; both commands write them.
 
-`dependabot-sync.yml` runs `make sync` on a Dependabot PR that changes `Package.swift`, pushes the markers with the release bot token (`RELEASE_PRIVATE_KEY` stored as a Dependabot secret) and retitles the PR, for example `fix(firebase): bump firebase-ios-sdk to 13.0.0`.
+A Dependabot PR that changes `Package.swift` needs the release markers too: run `make sync` on its branch, push the result, and retitle the PR so the affected packages release, for example `fix(firebase): bump firebase-ios-sdk to 13.0.0`.
 
 ## Shared code, markers and export
 
@@ -147,7 +147,6 @@ Not covered: GitHub Actions, App permissions, rulesets, environments, Release Pl
 | `scripts/ci/pick-simulator.sh` | First available iPhone on the newest iOS runtime (no hardcoded device) |
 | `scripts/scaffold.py` | `make new-integration`: a new package with its inventory, Release Please and root `Package.swift` entries |
 | `scripts/import_package.py` | `make import-integration`: imports a repository at a tag, or at a later non-code-only `REF` (history or snapshot), without a Release Please entry |
-| `scripts/dependabot_sync.py` | Releasable title for a Dependabot PR whose markers changed (`dependabot-sync.yml`) |
 | `scripts/check_inventory.py` | CI check: package list, allowlist, Release Please entries, generated files and action SHA pins agree |
 | `scripts/generate_github.py` | Regenerates issue forms and the `package` dropdowns of manual workflows from the package list (`--check` in CI) |
 | `scripts/project.py` | Graph inspection and deterministic standalone export |

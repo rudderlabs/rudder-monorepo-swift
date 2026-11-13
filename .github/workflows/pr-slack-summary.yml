@@ -4,7 +4,8 @@ name: PR Slack Summary
 # main's, never the PR's. The PR and its job results come from the GitHub API. It never changes a check result.
 # SLACK_PR_WEBHOOK_URL is separate from the release webhook so PR messages can move to their own channel.
 on:
-  workflow_run:
+  # workflow_run runs main's workflow; the job checks out main's commit and reads no PR files or artifacts.
+  workflow_run: # zizmor: ignore[dangerous-triggers]
     workflows: [PR Validation]
     types: [completed]
 permissions: {}
@@ -30,6 +31,7 @@ jobs:
 
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
         with:
+          ref: ${{ github.workflow_sha }}  # main's commit, never the PR's
           persist-credentials: false
       - name: Send Slack notification
         continue-on-error: true

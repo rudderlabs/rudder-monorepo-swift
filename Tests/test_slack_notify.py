@@ -247,14 +247,16 @@ class WorkflowTests(unittest.TestCase):
         self.assertIn('needs: [packages, policy, lint, test, export]', gate)
 
     def test_pr_summary_runs_main_code_after_pr_validation(self):
-        # The webhook is held only by a workflow_run job: GitHub runs it from the default branch, and its checkout
-        # has no ref, so it is main's commit. The PR's code is never checked out or run next to the secret.
+        # The webhook is held only by a workflow_run job: GitHub runs it from the default branch, and it checks out
+        # that workflow's own commit. The PR's code is never checked out or run next to the secret.
         summary = self.read('pr-slack-summary.yml')
-        self.assertIn('workflow_run:\n    workflows: [PR Validation]\n    types: [completed]', summary)
+        self.assertIn('workflow_run: # zizmor: ignore[dangerous-triggers]\n    workflows: [PR Validation]\n'
+                      '    types: [completed]', summary)
         self.assertEqual(self.read('ci.yml').split('\n', 1)[0], 'name: PR Validation')
         self.assertIn('permissions: {}', summary)
         self.assertIn('environment: notifications', summary)
-        self.assertNotIn('ref:', summary)
+        self.assertEqual(summary.count('ref:'), 1)
+        self.assertIn('ref: ${{ github.workflow_sha }}', summary)
         self.assertNotIn('pull_request_target', summary)
         self.assertNotIn('actions/download-artifact', summary)
 

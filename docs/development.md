@@ -93,8 +93,6 @@ Slack (`scripts/slack_notify.py`, texts in `release/texts.json`, no run links): 
 
 Release sanity (`release-sanity.yml`, the SDK's e2e suite in `rudderlabs/rudder-mobile-sdk-test`) runs for `swift-sdk` only, once per release, before the release: when the bot opens the SDK publish PR it tests branch `publication/swift-sdk/<version>` of the public repository, which is exactly what customers get. It is advisory: **check its result before merging the SDK publish PR.** There is no post-release run (same code; the customer check covers the tag).
 
-Admin setup (variables, environments, secrets, rulesets): [production-setup.md](production-setup.md).
-
 ## Customer check
 
 After a publication, `scripts/verify_public_customer.py <package> <version> <evidence-dir>` generates a throwaway SwiftPM package that depends on the public URL at that exact version and imports the package's target.

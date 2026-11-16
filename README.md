@@ -81,7 +81,6 @@ Either way, its key must first be in `release/allowlist.json` (sdk_team approval
 - [Development guide](docs/development.md): CI, git hooks, shared code, export rules and the local release rehearsal.
 - [Reviewed publication](docs/reviewed-publication/README.md): how a release reaches the public repositories, and maintainer how-tos.
 - [Release boundaries](docs/release-boundaries/README.md): the branch model and acceptance checks.
-- [Repository setup](docs/production-setup.md): settings, rulesets, secrets and the release bot (admins).
 - [Dependency management](docs/dependency-management/README.md): Dependabot setup.
 
 ## Contributing

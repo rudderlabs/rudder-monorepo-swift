@@ -157,9 +157,9 @@
           "identity": "facebook-ios-sdk",
           "product": "FacebookCore",
           "requirement": {
-            "kind": "upToNextMajor",
+            "kind": "range",
             "lower": "18.0.0",
-            "upper": "19.0.0"
+            "upper": "20.0.0"
           },
           "url": "https://github.com/facebook/facebook-ios-sdk"
         }

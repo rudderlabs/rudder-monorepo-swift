@@ -21,7 +21,7 @@ let package = Package(
     dependencies: [
         // @integrations-dependencies
         .package(url: "https://github.com/UserLeap/userleap-ios-sdk-releases", .upToNextMajor(from: "4.29.0")),
-        .package(url: "https://github.com/firebase/firebase-ios-sdk", .upToNextMajor(from: "12.5.0")),
+        .package(url: "https://github.com/firebase/firebase-ios-sdk", "12.5.0"..<"14.0.0"),
         .package(url: "https://github.com/adjust/ios_sdk", .upToNextMajor(from: "5.4.6")),
         .package(url: "https://github.com/facebook/facebook-ios-sdk", .upToNextMajor(from: "18.0.0")),
         .package(url: "https://github.com/AppsFlyerSDK/AppsFlyerFramework-Static", .upToNextMajor(from: "7.0.1")),

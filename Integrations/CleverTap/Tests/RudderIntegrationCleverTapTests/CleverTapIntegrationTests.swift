@@ -58,6 +58,15 @@ class CleverTapIntegrationTests {
         #expect(mockAdapter.setDebugLevelCalls.count == 1)
     }
 
+    @Test("given an instance log level, when create is called, then CleverTap gets that log level")
+    func testCreateUsesInstanceLogLevel() throws {
+        integration.analytics = Analytics(configuration: Configuration(writeKey: "test-write-key-\(UUID().uuidString)", dataPlaneUrl: "https://test.rudderstack.com", logLevel: .debug))
+
+        try setupWithDefaultConfig()
+
+        #expect(mockAdapter.setDebugLevelCalls == [.debug])
+    }
+
     @Test("given a config with the region none, when create is called, then no region is set")
     func testCreateWithoutRegion() throws {
         try integration.create(destinationConfig: CleverTapTestData.configWithoutRegion)

@@ -4,6 +4,7 @@
 //  Created by Satheesh Kannan on 24/11/25.
 //
 
+import Foundation
 import Testing
 import AdjustSdk
 import RudderStackAnalytics
@@ -19,9 +20,13 @@ class AdjustIntegrationTests {
     let testAppToken = "AppToken_123"
     
     init() {
-        LoggerAnalytics.logLevel = .debug
         mockAdaptor = MockAdjustSDKAdapter()
         integration = AdjustIntegration(adjustSDKAdapter: mockAdaptor)
+        integration.analytics = Self.makeAnalytics(logLevel: .debug)
+    }
+
+    private static func makeAnalytics(logLevel: LogLevel) -> Analytics {
+        Analytics(configuration: Configuration(writeKey: "test-write-key-\(UUID().uuidString)", dataPlaneUrl: "https://test.rudderstack.com", logLevel: logLevel))
     }
     
     // MARK: - create()
@@ -40,6 +45,21 @@ class AdjustIntegrationTests {
         #expect(self.mockAdaptor.initConfig?.delegate != nil)
     }
     
+    @Test("given an instance log level, when create() is called, then Adjust uses the matching environment",
+          arguments: [
+            (LogLevel.none, ADJEnvironmentProduction),
+            (.error, ADJEnvironmentSandbox),
+            (.verbose, ADJEnvironmentSandbox)
+          ])
+    func testEnvironmentFollowsInstanceLogLevel(logLevel: LogLevel, environment: String) throws {
+        integration.analytics = Self.makeAnalytics(logLevel: logLevel)
+
+        try integration.create(destinationConfig: ["appToken": testAppToken])
+
+        #expect(self.mockAdaptor.initConfig?.environment == environment)
+        #expect(self.mockAdaptor.logger != nil)
+    }
+
     @Test("when create() is called with missing appToken, then it should throw an error")
     func testCreateMissingAppToken() {
         let config: [String: Any] = [:]

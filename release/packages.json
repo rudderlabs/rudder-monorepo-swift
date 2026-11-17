@@ -14,7 +14,7 @@
         }
       },
       "repository": "integration-swift-adjust",
-      "sdkMinimum": "2.0.0",
+      "sdkMinimum": "2.2.0",
       "target": "RudderIntegrationAdjust",
       "toolsVersion": "5.9",
       "vendorProducts": [
@@ -81,7 +81,7 @@
         }
       },
       "repository": "integration-swift-braze",
-      "sdkMinimum": "2.0.0",
+      "sdkMinimum": "2.2.0",
       "target": "RudderIntegrationBraze",
       "toolsVersion": "5.9",
       "vendorProducts": [
@@ -114,7 +114,7 @@
         }
       },
       "repository": "integration-swift-clevertap",
-      "sdkMinimum": "2.0.0",
+      "sdkMinimum": "2.2.0",
       "target": "RudderIntegrationCleverTap",
       "toolsVersion": "5.9",
       "vendorProducts": [
@@ -223,7 +223,7 @@
         }
       },
       "repository": "integration-swift-sprig",
-      "sdkMinimum": "2.0.0",
+      "sdkMinimum": "2.2.0",
       "target": "RudderIntegrationSprig",
       "toolsVersion": "5.9",
       "vendorProducts": [

@@ -123,6 +123,16 @@ class BrazeIntegrationTests {
         #expect(mockAdapter.initSDKCalls.count == 1) // Only from create call
     }
 
+    @Test("given an instance log level, when create is called, then Braze gets that log level and the adapter gets the instance logger")
+    func testCreateUsesInstanceLogLevel() throws {
+        brazeIntegration.analytics = Analytics(configuration: Configuration(writeKey: "test-write-key-\(UUID().uuidString)", dataPlaneUrl: "https://data.invalid", controlPlaneUrl: "https://config.invalid", logLevel: .debug))
+
+        try setupWithDefaultConfig()
+
+        #expect(mockAdapter.initSDKCalls.first?.logLevel == .debug)
+        #expect(mockAdapter.logger != nil)
+    }
+
     // MARK: - Platform-Specific App Identifier Key Tests
 
     @Test("given platform-specific key is enabled and iOSApiKey is present, when integration is initialized, then iOSApiKey should be used")

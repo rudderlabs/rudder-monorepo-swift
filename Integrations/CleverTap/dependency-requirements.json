@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "sdkMinimum": "2.0.0",
+  "sdkMinimum": "2.2.0",
   "vendors": [
     {
       "identity": "clevertap-ios-sdk",

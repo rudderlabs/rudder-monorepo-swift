@@ -54,9 +54,9 @@ public class FirebaseIntegration: IntegrationPlugin, StandardIntegration {
 
         if !appAdapter.isConfigured {
             appAdapter.configure()
-            LoggerAnalytics.debug("Firebase is initialized")
+            logger.debug(log: "Firebase is initialized")
         } else {
-            LoggerAnalytics.debug("Firebase core already initialized - skipping Firebase configuration")
+            logger.debug(log: "Firebase core already initialized - skipping Firebase configuration")
         }
     }
 
@@ -77,7 +77,7 @@ public class FirebaseIntegration: IntegrationPlugin, StandardIntegration {
     public func identify(payload: IdentifyEvent) {
         // Set Firebase user ID if present
         if let userId = payload.userId, !FirebaseUtils.isEmpty(userId) {
-            LoggerAnalytics.debug("FirebaseIntegration: Setting userId to firebase")
+            logger.debug(log: "FirebaseIntegration: Setting userId to firebase")
             self.analyticsAdapter.setUserID(userId)
         }
 
@@ -96,7 +96,7 @@ public class FirebaseIntegration: IntegrationPlugin, StandardIntegration {
 
                     // Set user property with string conversion
                     let stringValue = "\(value)"
-                    LoggerAnalytics.debug("FirebaseIntegration: Setting userProperty to Firebase: \(firebaseKey)")
+                    logger.debug(log: "FirebaseIntegration: Setting userProperty to Firebase: \(firebaseKey)")
                     self.analyticsAdapter.setUserProperty(stringValue, forName: firebaseKey)
                 }
             }
@@ -110,7 +110,7 @@ public class FirebaseIntegration: IntegrationPlugin, StandardIntegration {
         // Check if event name is present
         let eventName = payload.event
         guard !FirebaseUtils.isEmpty(eventName) else {
-            LoggerAnalytics.debug("FirebaseIntegration: Since the event name is not present, the track event sent to Firebase has been dropped.")
+            logger.debug(log: "FirebaseIntegration: Since the event name is not present, the track event sent to Firebase has been dropped.")
             return
         }
 
@@ -137,7 +137,7 @@ public class FirebaseIntegration: IntegrationPlugin, StandardIntegration {
         // Check if screen name is present
         let screenName = payload.event
         guard !FirebaseUtils.isEmpty(screenName) else {
-            LoggerAnalytics.debug("FirebaseIntegration: Since the event name is not present, the screen event sent to Firebase has been dropped.")
+            logger.debug(log: "FirebaseIntegration: Since the event name is not present, the screen event sent to Firebase has been dropped.")
             return
         }
 
@@ -148,7 +148,7 @@ public class FirebaseIntegration: IntegrationPlugin, StandardIntegration {
         params[AnalyticsParameterScreenName] = screenName
 
         // Log screen view event
-        LoggerAnalytics.debug("FirebaseIntegration: Logged screen view \"\(screenName)\" to Firebase with properties: \(payload.properties?.dictionary?.rawDictionary ?? [:])")
+        logger.debug(log: "FirebaseIntegration: Logged screen view \"\(screenName)\" to Firebase with properties: \(payload.properties?.dictionary?.rawDictionary ?? [:])")
         self.analyticsAdapter.logEvent(AnalyticsEventScreenView, parameters: params)
     }
 
@@ -158,7 +158,7 @@ public class FirebaseIntegration: IntegrationPlugin, StandardIntegration {
     public func reset() {
         // Clear Firebase user ID
         self.analyticsAdapter.setUserID(nil)
-        LoggerAnalytics.debug("Reset: Firebase Analytics setUserID:nil")
+        logger.debug(log: "Reset: Firebase Analytics setUserID:nil")
     }
 }
 
@@ -210,7 +210,7 @@ extension FirebaseIntegration {
      */
     private func makeFirebaseEvent(firebaseEvent: String, properties: [String: Any]?, isECommerceEvent: Bool, params: [String: Any] = [:]) {
         let customParams = attachAllCustomProperties(properties: properties, isECommerceEvent: isECommerceEvent)
-        LoggerAnalytics.debug("FirebaseIntegration: Logged \"\(firebaseEvent)\" to Firebase with properties: \(properties ?? [:])")
+        logger.debug(log: "FirebaseIntegration: Logged \"\(firebaseEvent)\" to Firebase with properties: \(properties ?? [:])")
         self.analyticsAdapter.logEvent(firebaseEvent, parameters: customParams + params)
     }
 

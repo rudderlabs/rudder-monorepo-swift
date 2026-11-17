@@ -46,6 +46,30 @@ class LibraryInfoPluginTests {
         #expect(libraryInfo["version"] as? String == RudderStackAnalyticsVersion.current)
     }
     
+    @Test("given a wrapper library, when intercepting an event, then adds wrapperLibrary next to the unchanged library context")
+    func testWrapperLibraryIsAdded() throws {
+        let plugin = LibraryInfoPlugin(wrapperLibraryInfo: { (name: "rudder-sdk-flutter", version: "4.0.0") })
+        plugin.setup(analytics: MockProvider.createMockAnalytics())
+
+        let context = try #require(plugin.intercept(event: MockProvider.mockTrackEvent)?.context?.rawDictionary)
+
+        let wrapperLibrary = try #require(context["wrapperLibrary"] as? [String: String])
+        #expect(wrapperLibrary == ["name": "rudder-sdk-flutter", "version": "4.0.0"])
+        let library = try #require(context["library"] as? [String: String])
+        #expect(library == ["name": RSLibraryName, "version": RSVersion])
+    }
+
+    @Test("given no wrapper library, when intercepting an event, then adds no wrapperLibrary")
+    func testNoWrapperLibrary() throws {
+        let plugin = LibraryInfoPlugin(wrapperLibraryInfo: { nil })
+        plugin.setup(analytics: MockProvider.createMockAnalytics())
+
+        let context = try #require(plugin.intercept(event: MockProvider.mockTrackEvent)?.context?.rawDictionary)
+
+        #expect(context["wrapperLibrary"] == nil)
+        #expect(context["library"] != nil)
+    }
+
     @Test("when setup is called, then analytics reference is stored")
     func testPluginSetup() {
         let analytics = MockProvider.createMockAnalytics()

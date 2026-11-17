@@ -329,6 +329,26 @@ struct SchemaGuardPluginTests {
         #expect(result?.context?.rawDictionary["library"] as? String == Self.sentinel)
         #expect(warnMessages(in: mockLogger).isEmpty, "A mismatched snapshot must fail safe — silence, never a false warning.")
     }
+    @Test("given a wrapper library, when the chain runs, then wrapperLibrary reaches the terminal consumers with no warning")
+    func testWrapperLibraryPassesTheGuard() throws {
+        let mockLogger = MockLogger()
+        let analytics = makeAnalytics(consent: ConsentManagementConfiguration(enabled: false), logger: mockLogger)
+        let (snapshot, guardPlugin) = makeGuard(for: analytics)
+        let capture = MockEventCapturePlugin()
+        let chain = PluginChain(analytics: analytics)
+        chain.add(plugin: LibraryInfoPlugin(wrapperLibraryInfo: { (name: "rudder-sdk-flutter", version: "4.0.0") }))
+        chain.add(plugin: snapshot)
+        chain.add(plugin: guardPlugin)
+        chain.add(plugin: capture)
+
+        chain.process(event: makeTrackEvent(for: analytics))
+
+        let context = try #require(capture.capturedEvents.first?.context?.rawDictionary)
+        #expect(context["wrapperLibrary"] as? [String: String] == ["name": "rudder-sdk-flutter", "version": "4.0.0"])
+        #expect(context["library"] as? [String: String] == ["name": RSLibraryName, "version": RSVersion])
+        #expect(warnMessages(in: mockLogger).isEmpty)
+    }
+
     // MARK: - Cloud path, end to end
 
     // Analytics.setup registers the guard ahead of cloud delivery, and every other guard test builds its own

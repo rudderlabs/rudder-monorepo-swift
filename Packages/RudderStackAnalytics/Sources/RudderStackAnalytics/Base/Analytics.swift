@@ -93,6 +93,13 @@ public class Analytics {
         self.sourceConfigState = createState(initialState: SourceConfig.initialState())
 
         self.consentManagementState = createState(initialState: ConsentManagement.initialState(configuration.consentManagement))
+
+        guard RunningWriteKeys.claim(self) else {
+            self.isAnalyticsShutdown = true
+            self.logger.error(log: "Analytics: An instance for this write key already runs in this process. This instance does not start and ignores every call. Reuse the running instance, or call shutdown() on it first.", error: nil)
+            return
+        }
+
         if configuration.consentManagement.enabled, !self.consentManagementState.value.active {
             self.logger.info(log: "Analytics: Consent management is enabled but no consent IDs were supplied; consent management is inactive for this session. Supply allowedConsentIds or deniedConsentIds in Configuration.")
         }
@@ -323,6 +330,7 @@ extension Analytics {
         guard self.isAnalyticsActive else { return }
         logger.debug(log: "Analytics: Shutting down analytics")
         self.isAnalyticsShutdown = true
+        RunningWriteKeys.release(self)
         self.processEventChannel.close()
     }
     

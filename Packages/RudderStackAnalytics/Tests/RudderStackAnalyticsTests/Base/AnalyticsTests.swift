@@ -36,6 +36,15 @@ class AnalyticsTests {
         analytics.add(plugin: mockPlugin)
     }
     
+    // MARK: - Configuration Tests
+    @Test("given an analytics instance, when its configuration is read, then it holds the write key the instance was created with")
+    func testConfigurationExposesWriteKey() {
+        let writeKey = "configuration-write-key"
+        let analytics = Analytics(configuration: MockProvider.createMockConfiguration(writeKey: writeKey))
+
+        #expect(analytics.configuration.writeKey == writeKey)
+    }
+
     // MARK: - Track Event Tests
     @Test("when tracking events with variations, then event is captured correctly", arguments: EventTestCaseParameters.trackEvent)
     func testTrackEventVariants(_ eventName: String, _ properties: Properties?, _ options: RudderOption?) async {

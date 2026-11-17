@@ -17,7 +17,7 @@ public class Configuration: NSObject {
     /**
      The write key used to authenticate with the analytics service.
      */
-    var writeKey: String
+    public let writeKey: String
     
     /**
      The URL for the data plane where analytics events are sent.

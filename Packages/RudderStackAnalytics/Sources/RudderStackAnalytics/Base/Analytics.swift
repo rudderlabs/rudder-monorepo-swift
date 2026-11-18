@@ -62,7 +62,7 @@ public class Analytics {
     /**
      Tracks the shutdown state of the analytics instance.
      */
-    private(set) var isAnalyticsShutdown: Bool = false
+    @Synchronized private(set) var isAnalyticsShutdown: Bool = false
     
     /**
      The per-instance logger, built from the configuration at init time.

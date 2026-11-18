@@ -13,9 +13,30 @@ import Foundation
  So one write key has at most one running instance.
  The map holds a weak reference, so it does not keep an instance in memory.
  */
-enum RunningWriteKeys {
+@_spi(RudderStackWrapper)
+public enum RunningWriteKeys {
 
     @Synchronized private static var instances: [String: WeakAnalytics] = [:]
+
+    /**
+     Returns the running instance for `writeKey` after its start completes, or `nil`. A wrapper SDK uses it to share a native instance.
+     */
+    public static func find(_ writeKey: String) -> Analytics? {
+        guard let holder = instances[writeKey], holder.started, let analytics = holder.analytics, !analytics.isAnalyticsShutdown else { return nil }
+        return analytics
+    }
+
+    /**
+     Lets `find` return `analytics`. The instance calls it at the end of its start.
+     */
+    static func markStarted(_ analytics: Analytics) {
+        let writeKey = analytics.configuration.writeKey
+        $instances.modify { instances in
+            if instances[writeKey]?.analytics === analytics {
+                instances[writeKey]?.started = true
+            }
+        }
+    }
 
     /**
      Records `analytics` for its write key. Returns `false` when another running instance already holds it.
@@ -48,4 +69,5 @@ enum RunningWriteKeys {
 
 private struct WeakAnalytics {
     weak var analytics: Analytics?
+    var started = false
 }

@@ -105,6 +105,8 @@ public class Analytics {
         }
         
         self.setup()
+        // A wrapper SDK finds the instance only after its start completes.
+        RunningWriteKeys.markStarted(self)
     }
 }
 

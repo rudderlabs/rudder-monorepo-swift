@@ -5,7 +5,7 @@
 
 import Foundation
 import Testing
-@testable import RudderStackAnalytics
+@_spi(RudderStackWrapper) @testable import RudderStackAnalytics
 
 @Suite("Duplicate Instance Tests")
 struct DuplicateInstanceTests {
@@ -40,6 +40,37 @@ struct DuplicateInstanceTests {
         #expect(secondLogger.logs.filter { $0.message.contains(refusedMessage) }.count == 1)
         #expect(!firstLogger.hasLog(level: "ERROR", containing: refusedMessage))
         first.shutdown()
+    }
+
+    @Test("given a running and a refused instance for a write key, when a wrapper looks up the write key, then it finds only the running instance while it runs")
+    func testFindReturnsOnlyTheRunningInstance() {
+        let writeKey = MockConstant.mockWriteKey
+        #expect(RunningWriteKeys.find(writeKey) == nil)
+
+        let running = makeAnalytics(writeKey: writeKey)
+        _ = makeAnalytics(writeKey: writeKey)
+        #expect(RunningWriteKeys.find(writeKey) === running)
+
+        running.shutdown()
+        #expect(RunningWriteKeys.find(writeKey) == nil)
+    }
+
+    @Test("given an instance that is starting, when a wrapper looks up its write key, then it finds the instance only after the start completes")
+    func testFindWaitsForTheStartToComplete() {
+        let writeKey = MockConstant.mockWriteKey
+        let logger = LookupLogger(writeKey: writeKey)
+        let config = MockProvider.createMockConfiguration(writeKey: writeKey)
+        config.trackApplicationLifecycleEvents = false
+        config.sessionConfiguration.automaticSessionTracking = false
+        // Consent without consent IDs makes the start log a line after it claims the write key.
+        config.consentManagement = ConsentManagementConfiguration(enabled: true)
+        config.logger = logger
+
+        let analytics = Analytics(configuration: config)
+
+        #expect(logger.foundDuringStart == [false])
+        #expect(RunningWriteKeys.find(writeKey) === analytics)
+        analytics.shutdown()
     }
 
     @Test("given a refused instance, when it shuts down, then the running instance keeps the write key")
@@ -105,4 +136,34 @@ struct DuplicateInstanceTests {
         #expect(running.count == 1)
         running.forEach { $0.shutdown() }
     }
+}
+
+/// Looks up the write key when the start logs its consent line, so a test sees what a wrapper SDK finds during the start.
+private final class LookupLogger: Logger {
+    private let writeKey: String
+    private let lock = NSLock()
+    private var found: [Bool] = []
+
+    init(writeKey: String) {
+        self.writeKey = writeKey
+    }
+
+    var foundDuringStart: [Bool] {
+        lock.lock()
+        defer { lock.unlock() }
+        return found
+    }
+
+    func info(log: String) {
+        guard log.contains("Consent management is enabled") else { return }
+        let isFound = RunningWriteKeys.find(writeKey) != nil
+        lock.lock()
+        found.append(isFound)
+        lock.unlock()
+    }
+
+    func verbose(log: String) {}
+    func debug(log: String) {}
+    func warn(log: String) {}
+    func error(log: String, error: Error?) {}
 }

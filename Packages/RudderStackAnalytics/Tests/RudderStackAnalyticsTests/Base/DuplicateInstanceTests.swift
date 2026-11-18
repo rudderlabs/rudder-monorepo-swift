@@ -12,12 +12,16 @@ struct DuplicateInstanceTests {
 
     private let refusedMessage = "An instance for this write key already runs in this process"
 
-    private func makeAnalytics(writeKey: String, logger: MockLogger = MockLogger()) -> Analytics {
+    private func makeConfiguration(writeKey: String, logger: MockLogger = MockLogger()) -> Configuration {
         let config = MockProvider.createMockConfiguration(writeKey: writeKey)
         config.trackApplicationLifecycleEvents = false
         config.sessionConfiguration.automaticSessionTracking = false
         config.logger = logger
-        return Analytics(configuration: config)
+        return config
+    }
+
+    private func makeAnalytics(writeKey: String, logger: MockLogger = MockLogger()) -> Analytics {
+        Analytics(configuration: makeConfiguration(writeKey: writeKey, logger: logger))
     }
 
     @Test("given a running instance, when a second instance starts for its write key, then the second logs one error and ignores calls, and the first keeps sending")
@@ -124,9 +128,11 @@ struct DuplicateInstanceTests {
         let writeKey = MockConstant.mockWriteKey
         let lock = NSLock()
         var instances: [Analytics] = []
+        // The mock setup replaces a shared network session, so it runs before the threads start.
+        let configurations = (0..<8).map { _ in makeConfiguration(writeKey: writeKey) }
 
-        DispatchQueue.concurrentPerform(iterations: 8) { _ in
-            let analytics = makeAnalytics(writeKey: writeKey)
+        DispatchQueue.concurrentPerform(iterations: configurations.count) { index in
+            let analytics = Analytics(configuration: configurations[index])
             lock.lock()
             instances.append(analytics)
             lock.unlock()

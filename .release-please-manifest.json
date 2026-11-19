@@ -1,7 +1,7 @@
 {
   "Packages/RudderStackAnalytics": "2.2.0",
   "Integrations/Sprig": "2.0.1",
-  "Integrations/Firebase": "2.0.1",
+  "Integrations/Firebase": "2.0.2",
   "Integrations/Adjust": "2.0.2",
   "Integrations/Facebook": "2.0.2",
   "Integrations/AppsFlyer": "3.0.1",

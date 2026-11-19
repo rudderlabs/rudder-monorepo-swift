@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.2](https://github.com/rudderlabs/rudder-monorepo-swift/compare/integration-firebase-2.0.1...integration-firebase-2.0.2) (2026-11-19)
+
+
+### Bug Fixes
+
+* **firebase:** accept firebase-ios-sdk 13 ([#70](https://github.com/rudderlabs/rudder-monorepo-swift/issues/70)) ([43d84fd](https://github.com/rudderlabs/rudder-monorepo-swift/commit/43d84fdb8000c6843f0197f6fdae660b7e84254c))
+
 ## [2.0.1](https://github.com/rudderlabs/rudder-monorepo-swift/compare/integration-firebase-2.0.0...integration-firebase-2.0.1) (2026-11-03)
 
 

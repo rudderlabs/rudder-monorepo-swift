@@ -25,7 +25,7 @@ class CleverTapIntegrationTests {
         self.integration = CleverTapIntegration(cleverTapAdapter: mockAdapter)
 
         let config = Configuration(
-            writeKey: "test-write-key",
+            writeKey: "test-write-key-\(UUID().uuidString)",
             dataPlaneUrl: "https://test.rudderstack.com"
         )
         self.mockAnalytics = Analytics(configuration: config)

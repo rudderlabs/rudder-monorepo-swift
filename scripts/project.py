@@ -5,7 +5,7 @@ from pathlib import Path
 import re
 import shutil
 
-from common import ROOT, OWNER, SOURCE_NAME, allowlist, anonymous_env, file_hashes, git, inventory, load, run, url, write_json
+from common import ROOT, OWNER, SOURCE_NAME, anonymous_env, file_hashes, git, inventory, load, run, url, write_json
 from dependency_policy import manifest, markers as dependency_markers
 
 SEMVER = re.compile(r"(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\Z")
@@ -130,13 +130,10 @@ def closure(name, targets, policies):
 
 def template(name, key):
     """Generated publication files come from release/templates in the trusted checkout, like the exporter.
-    `repository` and `public_issues` name the package's own public repository: while the monorepo is internal,
-    outside users report issues there instead of in the monorepo."""
-    repository = allowlist().get(key, "")
+    `issues` points to the monorepo: the public repositories take no issues or pull requests."""
     return (ROOT / "release/templates" / name).read_text().format(
-        package=key, owner=OWNER, source=SOURCE_NAME, repository=repository,
-        issues=f"https://github.com/{OWNER}/{SOURCE_NAME}/issues/new/choose",
-        public_issues=f"https://github.com/{OWNER}/{repository}/issues")
+        package=key, owner=OWNER, source=SOURCE_NAME,
+        issues=f"https://github.com/{OWNER}/{SOURCE_NAME}/issues/new/choose")
 
 
 def export(key, version, destination, root=ROOT, preview=False):

@@ -21,7 +21,7 @@ Each package's README has its installation and usage guide. Sample apps are in [
 
 ## Getting started
 
-You need macOS with Xcode 26 or later, Python 3.9 or later, and SwiftLint.
+You need macOS with Xcode 26.2 or later, Python 3.9 or later, and SwiftLint.
 
 1. Clone this repository.
 2. Run `make prepare` once. It checks the tools (with install hints), turns on the repository's git hooks for this clone only, and resolves the dependencies. It prints `Ready` when done; running it again is safe.

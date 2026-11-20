@@ -20,10 +20,10 @@ hint() { echo "  [WARNING] $1"; echo "            $2"; }
 
 echo "Checking tools..."
 xcode=$(xcodebuild -version 2>/dev/null | head -1)
-if [[ $xcode =~ ^Xcode\ ([0-9]+) ]] && [ "${BASH_REMATCH[1]}" -ge 26 ]; then
+if [[ $xcode =~ ^Xcode\ ([0-9]+)(\.([0-9]+))? ]] && (( BASH_REMATCH[1] * 100 + ${BASH_REMATCH[3]:-0} >= 2602 )); then
     ok "$xcode"
 else
-    need "Xcode 26 or later (found: ${xcode:-none})" \
+    need "Xcode 26.2 or later (found: ${xcode:-none})" \
          "Install Xcode from the App Store, then: sudo xcode-select -s /Applications/Xcode.app"
 fi
 if "$PYTHON" -c 'import sys; sys.exit(sys.version_info < (3, 9))' 2>/dev/null; then

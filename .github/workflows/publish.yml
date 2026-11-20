@@ -72,6 +72,32 @@ on:
 permissions:
   contents: read
 jobs:
+  runner:
+    # runs-on cannot read files, so this job reads the package's `runner` from the approved source for the publish job.
+    runs-on: ubuntu-latest
+    outputs:
+      runner: ${{ steps.runner.outputs.runner }}
+    steps:
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@351661ca32ac09a36dc5ee2d536e3128f2a3c8ed # v2.22.0
+        with:
+          egress-policy: audit
+
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+      - name: Checkout approved source inventory
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          ref: ${{ inputs.source_sha }}
+          path: .lab/release-source
+          sparse-checkout: release
+          persist-credentials: false
+      - name: Select the package's runner
+        id: runner
+        env:
+          PACKAGE: ${{ inputs.package }}
+        run: python3 scripts/package_ci.py runner --package "$PACKAGE" --root .lab/release-source >> "$GITHUB_OUTPUT"
   publish:
     # main, or Release Please (pushed or run by hand) on a maintenance branch release/<key>-X.Y.x (the script validates
     # the line). A called workflow sees its caller's name in github.workflow; a direct run here is "Publish Package".
@@ -85,7 +111,8 @@ jobs:
       publicationCommit: ${{ steps.verified.outputs.publicationCommit }}
       pullRequest: ${{ steps.verified.outputs.pullRequest }}
       takeover: ${{ steps.verified.outputs.takeover }}
-    runs-on: macos-15
+    needs: runner
+    runs-on: ${{ needs.runner.outputs.runner }}
     environment: spm-release
     concurrency:
       group: publication-${{ inputs.package }}

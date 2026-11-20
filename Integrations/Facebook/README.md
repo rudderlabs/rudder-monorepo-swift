@@ -78,8 +78,15 @@ let package = Package(
 This integration supports Facebook iOS SDK version:
 
 ```
-18.0.0+
+>=19.0.0, <20.0.0
 ```
+
+### Migrating to 3.0.0
+
+Version 3.0.0 requires Facebook iOS SDK 19 (`>=19.0.0, <20.0.0`), replacing 18.x. Facebook iOS SDK 19 needs an Xcode version with Swift 6.3 or later.
+
+- If your app does not add the Facebook SDK itself, update the integration. No other change is needed.
+- If your app adds the Facebook SDK itself, change that requirement to 19.x.
 
 ### Platform Support
 

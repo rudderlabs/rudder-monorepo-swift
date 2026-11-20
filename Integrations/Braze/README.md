@@ -104,7 +104,7 @@ If your app uses another Braze package, for example `braze-swift-sdk`, do one of
 This integration supports Braze iOS SDK version:
 
 ```
->=18.2.0, <19.0.0
+>=18.2.0, <20.0.0
 ```
 
 Use Xcode 26 or later. See [Migrating to 2.0.0](https://github.com/rudderlabs/integration-swift-braze/blob/3.0.0/MIGRATION.md) before upgrading from 1.x.
@@ -153,7 +153,7 @@ initialize Braze and pass that instance to the integration. The integration then
 your instance. This needs integration version 3.0.0 or higher.
 
 1. Add the Braze Swift SDK to your app target. Use the package `https://github.com/braze-inc/braze-swift-sdk-prebuilt-static`,
-   the product `BrazeKit`, and a version in the range `[18.2.0, 19.0.0)`. See [Braze package](#braze-package).
+   the product `BrazeKit`, and a version in the range `[18.2.0, 20.0.0)`. See [Braze package](#braze-package).
 2. Initialize Braze with your own configuration, as [Braze documents](https://www.braze.com/docs/developer_guide/sdk_integration?sdktab=swift).
 3. Pass the Braze instance to the integration:
 

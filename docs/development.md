@@ -24,7 +24,7 @@ Commit messages and PR titles: `<type>(<optional scope>)<optional !>: <descripti
 
 ## PR checks
 
-`ci.yml`: `policy` (the `make check` policy checks and the Python tests with `RUN_SWIFT_BUILD_TESTS=1`), `lint` (SwiftLint `--strict` with the root `.swiftlint.yml`; `Tests/`, `Examples/` and manifests are excluded, so the fixtures are not linted), one `test (<key>)` job per package (`xcodebuild test` on the iOS Simulator; a scheme written into the git-ignored `.swiftpm/` for the run holds only that package's test targets, so the job builds only what it tests) and one `export (<key>)` job per package (export, manifest check, generic iOS build). Both package jobs, and the release builds and customer check in `publish.yml`, use the runner's default Xcode (the oldest supported), or the package's `xcode` from `release/packages.json` (`package_ci.py xcode` sets `DEVELOPER_DIR`; the job fails if that Xcode is not installed). `ci-ok` needs all of them and fails if any failed or was cancelled; a skipped job passes.
+`ci.yml`: `policy` (the `make check` policy checks and the Python tests with `RUN_SWIFT_BUILD_TESTS=1`), `lint` (SwiftLint `--strict` with the root `.swiftlint.yml`; `Tests/`, `Examples/` and manifests are excluded, so the fixtures are not linted), one `test (<key>)` job per package (`xcodebuild test` on the iOS Simulator; a scheme written into the git-ignored `.swiftpm/` for the run holds only that package's test targets, so the job builds only what it tests) and one `export (<key>)` job per package (export, manifest check, generic iOS build). Both package jobs, and the release builds and customer check in `publish.yml`, use the oldest supported Xcode (`DEFAULT_XCODE` in `scripts/package_ci.py`), or the package's `xcode` from `release/packages.json` (`package_ci.py xcode` sets `DEVELOPER_DIR`; the job fails if that Xcode is not installed). `ci-ok` needs all of them and fails if any failed or was cancelled; a skipped job passes.
 
 A pull request runs only what it affects (`ci_plan.py --base <sha>`; try it locally with `--base origin/main`). A push runs only what changed since the branch's previous commit (`ci_plan.py --before <sha>`, the same rules), and every job for every package when that commit is unknown (a new branch, or a force push the checkout lacks).
 
@@ -134,7 +134,7 @@ Not covered: GitHub Actions, App permissions, rulesets, environments, Release Pl
 | Path | Role |
 | --- | --- |
 | `Tests/Fixtures/demo` | Demo SDK, Sprig, Firebase and shared code, used as test data only |
-| `release/packages.json` | The only package list: paths, components, targets, platforms and dependency policies; an optional `xcode` (for example `"26.2"`) for a package whose vendor needs a newer Xcode than the runner default |
+| `release/packages.json` | The only package list: paths, components, targets, platforms and dependency policies; an optional `xcode` (for example `"26.2"`) for a package whose vendor needs a newer Xcode than the default |
 | `release/allowlist.json` | Reviewed write targets (package key to repository); a key without a package is reserved |
 | `release/texts.json` | The only source of Release, bot PR and commit texts (rendered by `scripts/release_notes.py` from each package's CHANGELOG.md) |
 | `release/templates` | Generated CONTRIBUTING.md, `.github/CODEOWNERS` and README block added to every export |

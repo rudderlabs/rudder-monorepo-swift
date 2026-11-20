@@ -5,7 +5,7 @@ import RudderStackAnalytics
 
 // MARK: - Warning capture
 
-/// Captures `LoggerAnalytics.warn(...)` messages so the send-anyway warnings can be asserted.
+/// Captures `warn(...)` messages so the send-anyway warnings can be asserted.
 /// Only `warn`/`error` are overridden; the rest use the protocol's default no-op.
 private final class WarningCapturingLogger: Logger {
     var warnings: [String] = []
@@ -25,15 +25,10 @@ class EcommerceUtilTests {
 
     // MARK: - Helpers
 
-    /// Runs `body` with a fresh capturing logger installed at warn-visible level, returning the
-    /// warnings it emitted. Restores the previous log level afterwards.
-    private func captureWarnings(_ body: () -> Void) -> [String] {
+    /// Runs `body` with a fresh capturing logger, returning the warnings it emitted.
+    private func captureWarnings(_ body: (Logger) -> Void) -> [String] {
         let logger = WarningCapturingLogger()
-        let previousLevel = LoggerAnalytics.logLevel
-        LoggerAnalytics.setLogger(logger)
-        LoggerAnalytics.logLevel = .verbose
-        defer { LoggerAnalytics.logLevel = previousLevel }
-        body()
+        body(logger)
         return logger.warnings
     }
 
@@ -87,7 +82,7 @@ class EcommerceUtilTests {
             "extra_key": "extra_val"
         ]
 
-        let result = buildEcommerceEventProperties(properties: properties, brazeEvent: BrazeEcommerceEvent.productViewed, action: nil)
+        let result = buildEcommerceEventProperties(properties: properties, brazeEvent: BrazeEcommerceEvent.productViewed, action: nil, logger: SilentLogger())
 
         #expect(result["product_id"] as? String == "prod_1")
         #expect(result["product_name"] as? String == "Cool Shirt")
@@ -113,7 +108,7 @@ class EcommerceUtilTests {
             "currency": "USD"
         ]
 
-        let result = buildEcommerceEventProperties(properties: properties, brazeEvent: BrazeEcommerceEvent.productViewed, action: nil)
+        let result = buildEcommerceEventProperties(properties: properties, brazeEvent: BrazeEcommerceEvent.productViewed, action: nil, logger: SilentLogger())
 
         #expect(result["product_id"] as? String == "sku_5")
         #expect(result["variant_id"] as? String == "sku_5")
@@ -126,7 +121,7 @@ class EcommerceUtilTests {
             "source": "web"
         ]
 
-        let result = buildEcommerceEventProperties(properties: properties, brazeEvent: BrazeEcommerceEvent.productViewed, action: nil)
+        let result = buildEcommerceEventProperties(properties: properties, brazeEvent: BrazeEcommerceEvent.productViewed, action: nil, logger: SilentLogger())
 
         #expect(result["source"] as? String == "ios")
         let metadata = result["metadata"] as? [String: Any]
@@ -148,7 +143,7 @@ class EcommerceUtilTests {
             "coupon": "SAVE10"
         ]
 
-        let result = buildEcommerceEventProperties(properties: properties, brazeEvent: BrazeEcommerceEvent.cartUpdated, action: "add")
+        let result = buildEcommerceEventProperties(properties: properties, brazeEvent: BrazeEcommerceEvent.cartUpdated, action: "add", logger: SilentLogger())
 
         #expect(result["cart_id"] as? String == "cart_1")
         #expect(result["currency"] as? String == "USD")
@@ -185,7 +180,7 @@ class EcommerceUtilTests {
             "product_id": "top_level_pid"
         ]
 
-        let result = buildEcommerceEventProperties(properties: properties, brazeEvent: BrazeEcommerceEvent.cartUpdated, action: "remove")
+        let result = buildEcommerceEventProperties(properties: properties, brazeEvent: BrazeEcommerceEvent.cartUpdated, action: "remove", logger: SilentLogger())
 
         #expect(result["action"] as? String == "remove")
 
@@ -212,7 +207,7 @@ class EcommerceUtilTests {
             "products": [["product_id": "p1", "name": "A", "quantity": 1, "price": 50.0]]
         ]
 
-        let result = buildEcommerceEventProperties(properties: properties, brazeEvent: BrazeEcommerceEvent.checkoutStarted, action: nil)
+        let result = buildEcommerceEventProperties(properties: properties, brazeEvent: BrazeEcommerceEvent.checkoutStarted, action: nil, logger: SilentLogger())
 
         #expect(result["checkout_id"] as? String == "ord_1")
         #expect(result["total_value"] as? Double == 200.0)
@@ -231,7 +226,7 @@ class EcommerceUtilTests {
             "products": [["product_id": "p1", "name": "A", "quantity": 2, "price": 40.0, "sku": "s1"]]
         ]
 
-        let result = buildEcommerceEventProperties(properties: properties, brazeEvent: BrazeEcommerceEvent.orderPlaced, action: nil)
+        let result = buildEcommerceEventProperties(properties: properties, brazeEvent: BrazeEcommerceEvent.orderPlaced, action: nil, logger: SilentLogger())
 
         #expect(result["order_id"] as? String == "ord_9")
         #expect(result["total_value"] as? Double == 99.99)
@@ -249,7 +244,8 @@ class EcommerceUtilTests {
             result = buildEcommerceEventProperties(
                 properties: ["order_id": "r1"],
                 brazeEvent: BrazeEcommerceEvent.orderRefunded,
-                action: nil
+                action: nil,
+                logger: $0
             )
         }
 
@@ -277,7 +273,7 @@ class EcommerceUtilTests {
             "products": [["product_id": "p1", "name": "A", "quantity": 1, "price": 80.0]]
         ]
 
-        let result = buildEcommerceEventProperties(properties: properties, brazeEvent: BrazeEcommerceEvent.orderRefunded, action: nil)
+        let result = buildEcommerceEventProperties(properties: properties, brazeEvent: BrazeEcommerceEvent.orderRefunded, action: nil, logger: SilentLogger())
 
         #expect((result["discounts"] as? [[String: Any]])?.count == 1)
     }
@@ -294,7 +290,7 @@ class EcommerceUtilTests {
             "products": [["product_id": "p1", "name": "A", "quantity": 1, "price": 50.0]]
         ]
 
-        let result = buildEcommerceEventProperties(properties: properties, brazeEvent: BrazeEcommerceEvent.orderCancelled, action: nil)
+        let result = buildEcommerceEventProperties(properties: properties, brazeEvent: BrazeEcommerceEvent.orderCancelled, action: nil, logger: SilentLogger())
 
         #expect(result["cancel_reason"] as? String == "changed mind")
     }
@@ -306,7 +302,8 @@ class EcommerceUtilTests {
         let productViewed = buildEcommerceEventProperties(
             properties: ["product_id": "p", "name": "n", "variant": "v", "price": "29.99", "currency": "USD"],
             brazeEvent: BrazeEcommerceEvent.productViewed,
-            action: nil
+            action: nil,
+            logger: SilentLogger()
         )
         #expect(productViewed["price"] as? Double == 29.99)
 
@@ -316,7 +313,8 @@ class EcommerceUtilTests {
                 "products": [["product_id": "p1", "name": "A", "quantity": "2", "price": "10.50"]]
             ],
             brazeEvent: BrazeEcommerceEvent.orderPlaced,
-            action: nil
+            action: nil,
+            logger: SilentLogger()
         )
         let product = (orderPlaced["products"] as? [[String: Any]])?.first
         #expect(product?["quantity"] as? Int == 2)
@@ -328,7 +326,8 @@ class EcommerceUtilTests {
         let result = buildEcommerceEventProperties(
             properties: ["product_id": 123, "name": "n", "variant": "v", "price": 1.0, "currency": "USD"],
             brazeEvent: BrazeEcommerceEvent.productViewed,
-            action: nil
+            action: nil,
+            logger: SilentLogger()
         )
 
         #expect(result["product_id"] as? String == "123")
@@ -343,7 +342,8 @@ class EcommerceUtilTests {
             result = buildEcommerceEventProperties(
                 properties: ["product_id": "p", "name": "n", "variant": "v", "price": true, "currency": "USD"],
                 brazeEvent: BrazeEcommerceEvent.productViewed,
-                action: nil
+                action: nil,
+                logger: $0
             )
         }
 
@@ -361,7 +361,8 @@ class EcommerceUtilTests {
             _ = buildEcommerceEventProperties(
                 properties: ["product_id": "p", "name": "n", "variant": "v", "price": 1.0, "currency": "USD", "type": [1, 2]],
                 brazeEvent: BrazeEcommerceEvent.productViewed,
-                action: nil
+                action: nil,
+                logger: $0
             )
         }
 

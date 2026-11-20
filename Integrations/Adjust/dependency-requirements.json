@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "sdkMinimum": "2.0.0",
+  "sdkMinimum": "2.3.0",
   "vendors": [
     {
       "identity": "ios_sdk",

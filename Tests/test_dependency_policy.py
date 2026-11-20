@@ -145,7 +145,7 @@ class DependencyPolicyTests(unittest.TestCase):
         self.assertEqual(affected(["Shared/README.md"], self.root), [])
 
     def test_vendor_package_names_match_identities_in_any_case(self):
-        # e.g. AppsFlyer writes package: "AppsFlyerFramework-Static"; SwiftPM's identity is lowercase.
+        # e.g. AppsFlyer writes package: "AppsFlyerFramework"; SwiftPM's identity is lowercase.
         expected = load(self.root / "release/packages.json")
         path = self.root / "Package.swift"
         path.write_text(path.read_text().replace('package: "swift-collections"', 'package: "Swift-Collections"'))

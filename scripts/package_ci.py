@@ -27,7 +27,7 @@ SCHEME = "package-ci-{}"
 # Where the GitHub macOS runner images install each Xcode.
 DEVELOPER_DIR = "/Applications/Xcode_{}.app/Contents/Developer"
 # The oldest Xcode the monorepo supports: CI and release builds use it unless a package sets `xcode`.
-DEFAULT_XCODE = "26.0.1"
+DEFAULT_XCODE = "26.2"
 
 
 def matrix(root=ROOT):

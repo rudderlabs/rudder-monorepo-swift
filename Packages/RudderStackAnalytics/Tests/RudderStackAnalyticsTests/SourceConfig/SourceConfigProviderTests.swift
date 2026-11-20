@@ -392,6 +392,7 @@ class SourceConfigProviderRefreshTests {
         MockURLProtocol.forwardGetRequestsToHandler = true
         MockURLProtocol.requestHandler = { request in
             guard request.httpMethod == "GET" else { return (200, nil, nil) }
+            counter.record(request.url)
             let isLaunchFetch = counter.increment() == 0
             if !isLaunchFetch { Thread.sleep(forTimeInterval: refreshResponseDelay) }
             let statusCode = isLaunchFetch ? 200 : refreshStatusCode
@@ -433,6 +434,8 @@ class SourceConfigProviderRefreshTests {
 
         await waitUntil { self.requestCounter.count == 2 }
         #expect(requestCounter.count == 2)
+        #expect(requestCounter.urls.first?.queryParameters["refresh"] == nil)
+        #expect(requestCounter.urls.last?.queryParameters["refresh"] == "true")
         provider.stopPeriodicRefresh()
     }
 
@@ -539,8 +542,15 @@ class SourceConfigProviderRefreshTests {
 private final class RequestCounter: @unchecked Sendable {
     private let lock = NSLock()
     private var value = 0
+    private var recordedUrls: [URL] = []
 
     var count: Int { lock.withLock { value } }
+    var urls: [URL] { lock.withLock { recordedUrls } }
+
+    func record(_ url: URL?) {
+        guard let url else { return }
+        lock.withLock { recordedUrls.append(url) }
+    }
 
     @discardableResult
     func increment() -> Int {
@@ -550,5 +560,10 @@ private final class RequestCounter: @unchecked Sendable {
         }
     }
 
-    func reset() { lock.withLock { value = 0 } }
+    func reset() {
+        lock.withLock {
+            value = 0
+            recordedUrls = []
+        }
+    }
 }

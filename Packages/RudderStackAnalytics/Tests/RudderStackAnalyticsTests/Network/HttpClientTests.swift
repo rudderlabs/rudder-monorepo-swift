@@ -82,6 +82,18 @@ struct HttpClientTests {
         #expect(queryParameters["v"] == RSVersion, "Version parameter should be present")
         #expect(queryParameters["bv"] != nil, "Build version value should not be nil")
         #expect(queryParameters["writeKey"] == mockAnalytics.configuration.writeKey)
+        #expect(queryParameters["refresh"] == nil, "Only a refresh request carries the refresh parameter")
+    }
+
+    @Test("when preparing a refresh request URL for configuration, then adds the refresh parameter to the launch query")
+    func testRefreshConfigUrlAddsRefreshParam() {
+        guard let launchUrl = httpClient.prepareRequestUrl(for: .configuration),
+              let refreshUrl = httpClient.prepareRequestUrl(for: .configuration, isRefresh: true) else {
+            #expect(Bool(false), "SourceConfig request URLs should not be null.")
+            return
+        }
+
+        #expect(refreshUrl.queryParameters == launchUrl.queryParameters.merging(["refresh": "true"]) { $1 })
     }
 
 #if !os(watchOS) // URLProtocol-based mocks don’t work on watchOS..

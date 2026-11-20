@@ -147,7 +147,7 @@ class CiPlanTests(unittest.TestCase):
         env = {k: v for k, v in os.environ.items() if k != "GITHUB_OUTPUT"}  # the policy job sets it
         with patch.dict(os.environ, env, clear=True), contextlib.redirect_stdout(io.StringIO()) as output:
             self.assertEqual(main(["--all"]), 0)
-        self.assertEqual(set(json.loads(output.getvalue())), {"test", "export", "policy"})
+        self.assertEqual(set(json.loads(output.getvalue())), {"test", "export", "policy", "runners"})
         with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
             main(["--all", "--affected"])
         with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
@@ -156,6 +156,18 @@ class CiPlanTests(unittest.TestCase):
             main(["--all", "--no-dependents"])
         with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
             main([])
+
+    def test_cli_plans_each_package_on_its_runner(self):
+        packages = {"sprig": {"path": "Integrations/Sprig"}, "facebook": {"path": "Integrations/Facebook", "runner": "macos-26"}}
+        with tempfile.TemporaryDirectory() as temp:
+            outputs = Path(temp) / "outputs"
+            with patch("ci_plan.inventory", return_value=packages), patch.dict(os.environ, {"GITHUB_OUTPUT": str(outputs)}), \
+                    contextlib.redirect_stdout(io.StringIO()) as output:
+                self.assertEqual(main(["--all"]), 0)
+            runners = {"sprig": "macos-15", "facebook": "macos-26"}
+            self.assertEqual(json.loads(output.getvalue())["runners"], runners)
+            self.assertIn(f"runners={json.dumps(runners, separators=(',', ':'))}\n", outputs.read_text())
+        self.assertIn("runners: ${{ steps.plan.outputs.runners }}", WORKFLOW.split("\n  policy:\n", 1)[0])
 
     def test_changed_paths_come_from_the_branch_commits(self):
         with tempfile.TemporaryDirectory() as temp:

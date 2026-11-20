@@ -97,6 +97,15 @@ class InventoryTests(unittest.TestCase):
             self.assertIn('sprig: xcode must be an Xcode version such as "26.2" (the package\'s CI and release builds)',
                           problems(self.root))
 
+    def test_runner_is_an_optional_known_runner_image(self):
+        for value in ("macos-15", "macos-26"):
+            self.edit("packages.json", lambda d: d["packages"]["sprig"].update(runner=value))
+            self.assertEqual(problems(self.root), [])
+        for value in ("", "macos-14", "macos-latest", "ubuntu-latest", 26):
+            self.edit("packages.json", lambda d: d["packages"]["sprig"].update(runner=value))
+            self.assertIn("sprig: runner must be one of macos-15, macos-26 (the package's CI and release builds)",
+                          problems(self.root))
+
     def test_real_packages_have_release_titles(self):
         self.assertEqual({k: inventory()[k].get("title") for k in ("swift-sdk", "sprig", "firebase")},
                          {"swift-sdk": "RudderStack Swift SDK", "sprig": "RudderStack Sprig Integration",

@@ -19,7 +19,7 @@ class EcommerceUtilTests {
     private let analytics: Analytics
 
     init() {
-        let config = Configuration(writeKey: "test-write-key", dataPlaneUrl: "https://test.rudderstack.com")
+        let config = Configuration(writeKey: "test-write-key-\(UUID().uuidString)", dataPlaneUrl: "https://test.rudderstack.com")
         self.analytics = Analytics(configuration: config)
     }
 

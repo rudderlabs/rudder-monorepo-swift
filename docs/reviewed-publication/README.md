@@ -79,7 +79,7 @@ It records the built platforms and the resolved `Package.resolved` pins.
 
 Every export adds a generated CONTRIBUTING.md, `.github/CODEOWNERS` (`* @rudderlabs/sdk_team`) and a README block (`release/templates/`). All are hashed in provenance; `copiedFiles` records a `transform` per file (`copy`, `vendored-strip-import`, `generated`).
 
-While this monorepo is internal, outside users report issues in each public package repository (Issues stay on there) and the public repositories accept no pull requests (Pull request creation "Collaborators only"), so they change only through bot publish PRs. Once this monorepo is public, its open issues move here, the public repositories turn Issues off, and `release/templates/` points to this repository; that template change re-exports every package, so each package's next release carries the new text.
+Outside users report issues and propose changes in this monorepo. The public package repositories have Issues off and accept no pull requests (Pull request creation "Collaborators only"), so they change only through bot publish PRs. `release/templates/` points to this repository; a template change re-exports every package, so each package's next release carries the new text.
 
 **Set Current Release Version** (`anchor-package.yml`; manual: package, version, full `main` SHA) validates the package against the allowlist and package list, the SemVer version against `version.txt` at that commit, and the SHA on `main`, then creates the plain tag `<component>-<version>`. It creates no GitHub Release, so the completion queue never sees it, and no workflow starts on a tag.
 

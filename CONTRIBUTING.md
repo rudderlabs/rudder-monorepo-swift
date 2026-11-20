@@ -2,7 +2,7 @@
 
 ## Outside contributors
 
-While this repository is internal, report bugs and request features in the package's own public repository (its Issues tab). The public package repositories accept no pull requests: their code is generated from here.
+Report bugs and request features in this repository's [Issues](https://github.com/rudderlabs/rudder-monorepo-swift/issues/new/choose). To propose a change, open a pull request here; sdk_team reviews it. The public package repositories accept no issues or pull requests: their code is generated from here.
 
 ## Maintainers
 

@@ -245,6 +245,11 @@ class XcodeTests(unittest.TestCase):
             self.assertEqual(output.getvalue(), expected)
         with self.assertRaisesRegex(ValueError, "Unknown package: zzz"):
             main(["runner", "--package", "zzz", "--root", str(self.root)])
+        data = json.loads((self.root / "release/packages.json").read_text())
+        data["packages"]["sprig"]["runner"] = "self-hosted"
+        (self.root / "release/packages.json").write_text(json.dumps(data))
+        with self.assertRaisesRegex(ValueError, "runner must be one of macos-15, macos-26, not 'self-hosted'"):
+            main(["runner", "--package", "sprig", "--root", str(self.root)])
 
     def test_package_jobs_and_the_publication_run_on_the_package_runner(self):
         for job in ("test", "export"):
@@ -254,6 +259,7 @@ class XcodeTests(unittest.TestCase):
         self.assertIn('python3 scripts/package_ci.py runner --package "$PACKAGE" --root .lab/release-source'
                       ' >> "$GITHUB_OUTPUT"', runner)
         self.assertIn("ref: ${{ inputs.source_sha }}", runner)
+        self.assertEqual(runner.split("\n    runs-on:", 1)[0].split("    if: ", 1)[1], publish.split("    if: ", 1)[1].split("\n", 1)[0])
         self.assertIn("needs: runner\n    runs-on: ${{ needs.runner.outputs.runner }}\n", publish)
 
     def test_package_jobs_and_the_publication_select_the_xcode_before_building(self):

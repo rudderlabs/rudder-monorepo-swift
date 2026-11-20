@@ -79,7 +79,10 @@ def inventory(root=ROOT):
 
 def runner(package):
     """The GitHub runner image for the package's CI and release builds: its `runner` in release/packages.json."""
-    return package.get("runner", RUNNERS[0])
+    image = package.get("runner", RUNNERS[0])
+    if image not in RUNNERS:
+        raise ValueError(f"runner must be one of {', '.join(RUNNERS)}, not {image!r}")
+    return image
 
 
 def file_hashes(root):

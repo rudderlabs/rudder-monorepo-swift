@@ -74,6 +74,7 @@ permissions:
 jobs:
   runner:
     # runs-on cannot read files, so this job reads the package's `runner` from the approved source for the publish job.
+    if: github.repository == 'rudderlabs/rudder-monorepo-swift' && vars.RELEASES_ENABLED == 'true' && (github.ref == 'refs/heads/main' || (github.workflow == 'Release Please' && startsWith(github.ref, 'refs/heads/release/')))
     runs-on: ubuntu-latest
     outputs:
       runner: ${{ steps.runner.outputs.runner }}

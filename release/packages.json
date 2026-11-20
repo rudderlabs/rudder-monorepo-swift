@@ -192,8 +192,8 @@
           "identity": "firebase-ios-sdk",
           "product": "FirebaseAnalytics",
           "requirement": {
-            "kind": "range",
-            "lower": "12.5.0",
+            "kind": "upToNextMajor",
+            "lower": "13.0.0",
             "upper": "14.0.0"
           },
           "url": "https://github.com/firebase/firebase-ios-sdk"
@@ -202,8 +202,8 @@
           "identity": "firebase-ios-sdk",
           "product": "FirebaseCore",
           "requirement": {
-            "kind": "range",
-            "lower": "12.5.0",
+            "kind": "upToNextMajor",
+            "lower": "13.0.0",
             "upper": "14.0.0"
           },
           "url": "https://github.com/firebase/firebase-ios-sdk"

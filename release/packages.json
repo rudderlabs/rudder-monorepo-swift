@@ -92,8 +92,8 @@
           "identity": "braze-swift-sdk-prebuilt-static",
           "product": "BrazeKit",
           "requirement": {
-            "kind": "range",
-            "lower": "18.2.0",
+            "kind": "upToNextMajor",
+            "lower": "19.0.0",
             "upper": "20.0.0"
           },
           "url": "https://github.com/braze-inc/braze-swift-sdk-prebuilt-static"

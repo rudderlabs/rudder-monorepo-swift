@@ -134,6 +134,13 @@ jobs:
         run: python3 scripts/package_ci.py test --package "$PACKAGE"
         env:
           PACKAGE: ${{ matrix.package }}
+      # package_ci.py test writes the package's line coverage to .build/coverage/<key>.json.
+      - name: Upload coverage
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: coverage-${{ matrix.package }}
+          path: .build/coverage/
+          if-no-files-found: warn
 
   export:
     name: export (${{ matrix.package }})

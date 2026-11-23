@@ -98,7 +98,8 @@ class MatrixTests(unittest.TestCase):
 
     def test_sonarcloud_runs_only_when_enabled(self):
         block = WORKFLOW.split("\n  sonarcloud:\n", 1)[1].split("\n\n  ", 1)[0]
-        self.assertIn("if: vars.SONARCLOUD_ENABLED == 'true'", block)
+        self.assertIn("if: vars.SONARCLOUD_ENABLED == 'true' && github.event_name == 'push' && github.ref == 'refs/heads/main'",
+                      block)
 
     def test_ci_ok_passes_skipped_and_fails_failed_or_cancelled(self):
         self.assertEqual(failed_needs({"policy": {"result": "success"}, "test": {"result": "skipped"}}), [])

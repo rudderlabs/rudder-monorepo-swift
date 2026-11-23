@@ -188,7 +188,8 @@ jobs:
     # SonarCloud code quality (ported from rudder-sdk-swift pr-validation). Scans the package sources that exist;
     # with no packages yet there is nothing to scan and the job passes. Skipped until the repository variable
     # SONARCLOUD_ENABLED is `true` (set it once the SonarCloud project exists).
-    if: vars.SONARCLOUD_ENABLED == 'true'
+    # Runs only on pushes to main: SONAR_TOKEN never reaches PR code, and only main writes the Sonar cache.
+    if: vars.SONARCLOUD_ENABLED == 'true' && github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment: sonarcloud
     steps:

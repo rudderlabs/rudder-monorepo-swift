@@ -70,10 +70,10 @@ struct UtilsTests {
             "connectionMode": "device"
         ]
 
-        let result: RudderBrazeConfig? = parse(config)
+        let result: RudderBrazeConfig? = parse(config, logger: SilentLogger())
 
         #expect(result != nil)
-        #expect(result?.resolvedAppIdentifierKey == "test-api-key-123")
+        #expect(result?.resolvedAppIdentifierKey(logger: nil) == "test-api-key-123")
         #expect(result?.supportDedup == true)
     }
 
@@ -81,7 +81,7 @@ struct UtilsTests {
     func testParseEmptyDictionary() {
         let emptyConfig: [String: Any] = [:]
 
-        let result: RudderBrazeConfig? = parse(emptyConfig)
+        let result: RudderBrazeConfig? = parse(emptyConfig, logger: SilentLogger())
 
         #expect(result == nil)
     }
@@ -93,7 +93,7 @@ struct UtilsTests {
             "dataCenter": true // Wrong type - should be String
         ]
 
-        let result: RudderBrazeConfig? = parse(invalidConfig)
+        let result: RudderBrazeConfig? = parse(invalidConfig, logger: SilentLogger())
 
         #expect(result == nil)
     }
@@ -110,7 +110,7 @@ struct UtilsTests {
             ]
         ]
 
-        let result = getStandardProperties(properties)
+        let result = getStandardProperties(properties, logger: SilentLogger())
 
         #expect(result.currency == "USD")
         #expect(result.products.count == 1)
@@ -121,7 +121,7 @@ struct UtilsTests {
     func testGetStandardPropertiesEmpty() {
         let emptyProperties: [String: Any] = [:]
 
-        let result = getStandardProperties(emptyProperties)
+        let result = getStandardProperties(emptyProperties, logger: SilentLogger())
 
         #expect(result.currency == "USD") // Default currency
         #expect(result.products.count == 1) // Default contains one empty Product
@@ -287,7 +287,7 @@ struct UtilsTests {
         ]
         event.context = contextDict.mapValues { AnyCodable($0) }
 
-        let result = toIdentifyTraits(from: event)
+        let result = toIdentifyTraits(from: event, logger: SilentLogger())
 
         // Verify userId
         #expect(result.userId == "user_123")

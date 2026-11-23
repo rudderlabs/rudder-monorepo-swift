@@ -10,9 +10,16 @@ struct SprigIntegrationTests {
 
     // MARK: - Test Setup Helpers
 
-    private func createIntegration(mockAdapter: MockSprigAdapter = MockSprigAdapter()) -> (SprigIntegration, MockSprigAdapter) {
+    private func createIntegration(mockAdapter: MockSprigAdapter = MockSprigAdapter(), logLevel: LogLevel? = nil, logger: Logger? = nil) -> (SprigIntegration, MockSprigAdapter) {
         let integration = SprigIntegration(sprigAdapter:mockAdapter)
+        if let logLevel {
+            integration.analytics = makeAnalytics(logLevel: logLevel, logger: logger)
+        }
         return (integration, mockAdapter)
+    }
+
+    private func makeAnalytics(logLevel: LogLevel, logger: Logger? = nil) -> Analytics {
+        Analytics(configuration: Configuration(writeKey: "test-write-key-\(UUID().uuidString)", dataPlaneUrl: "https://test.rudderstack.com", logger: logger ?? SilentLogger(), logLevel: logLevel))
     }
 
     private func createIdentifyEvent(userId: String? = nil, traits: [String: Any]? = nil) -> IdentifyEvent {
@@ -26,24 +33,6 @@ struct SprigIntegrationTests {
 
     private func createTrackEvent(name: String, properties: [String: Any]? = nil) -> TrackEvent {
         return TrackEvent(event: name, properties: properties)
-    }
-
-    /// Runs `body` with `LoggerAnalytics.logLevel` (and optionally the logger) swapped in,
-    /// restoring the previous values afterwards. Keeps tests that mutate the shared logger
-    /// singleton hermetic from each other.
-    private func withLogLevel<T>(_ level: LogLevel, logger: Logger? = nil, body: () throws -> T) throws -> T {
-        let previousLevel = LoggerAnalytics.logLevel
-        LoggerAnalytics.logLevel = level
-        if let logger = logger {
-            LoggerAnalytics.setLogger(logger)
-        }
-        defer {
-            LoggerAnalytics.logLevel = previousLevel
-            if logger != nil {
-                LoggerAnalytics.setLogger(SilentLogger())
-            }
-        }
-        return try body()
     }
 
     @MainActor
@@ -314,78 +303,66 @@ struct SprigIntegrationTests {
 
     @Test("Given logLevel is not .none, when create is called, then registers logging listener")
     func testCreateRegistersLoggingListener() throws {
-        try withLogLevel(.debug) {
-            let (integration, mock) = createIntegration()
+        let (integration, mock) = createIntegration(logLevel: .debug)
 
-            try integration.create(destinationConfig: ["environmentId": "test-env-123"])
+        try integration.create(destinationConfig: ["environmentId": "test-env-123"])
 
-            #expect(mock.registerLoggingListenerCalls.count == 1)
-        }
+        #expect(mock.registerLoggingListenerCalls.count == 1)
     }
 
     @Test("Given logLevel is .none, when create is called, then skips logging listener registration")
     func testCreateSkipsLoggingListenerWhenLogLevelIsNone() throws {
-        try withLogLevel(.none) {
-            let (integration, mock) = createIntegration()
+        let (integration, mock) = createIntegration(logLevel: LogLevel.none)
 
-            try integration.create(destinationConfig: ["environmentId": "test-env-123"])
+        try integration.create(destinationConfig: ["environmentId": "test-env-123"])
 
-            #expect(mock.registerLoggingListenerCalls.isEmpty)
-        }
+        #expect(mock.registerLoggingListenerCalls.isEmpty)
     }
 
     @Test("Given create is called twice, when listener already registered, then does not register again")
     func testCreateDoesNotRegisterLoggingListenerTwice() throws {
-        try withLogLevel(.debug) {
-            let (integration, mock) = createIntegration()
+        let (integration, mock) = createIntegration(logLevel: .debug)
 
-            try integration.create(destinationConfig: ["environmentId": "test-env-123"])
-            try integration.create(destinationConfig: ["environmentId": "test-env-123"])
+        try integration.create(destinationConfig: ["environmentId": "test-env-123"])
+        try integration.create(destinationConfig: ["environmentId": "test-env-123"])
 
-            #expect(mock.registerLoggingListenerCalls.count == 1)
-        }
+        #expect(mock.registerLoggingListenerCalls.count == 1)
     }
 
-    @Test("Given registered listener emits a message, when invoked, then forwards to LoggerAnalytics.verbose")
+    @Test("Given registered listener emits a message, when invoked, then forwards to the instance logger at verbose")
     func testLoggingListenerForwardsMessageToVerbose() throws {
         let capturingLogger = CapturingLogger()
-        try withLogLevel(.verbose, logger: capturingLogger) {
-            let (integration, mock) = createIntegration()
-            try integration.create(destinationConfig: ["environmentId": "test-env-123"])
+        let (integration, mock) = createIntegration(logLevel: .verbose, logger: capturingLogger)
+        try integration.create(destinationConfig: ["environmentId": "test-env-123"])
 
-            mock.registerLoggingListenerCalls.first?("hello from Sprig")
+        mock.registerLoggingListenerCalls.first?("hello from Sprig")
 
-            #expect(capturingLogger.verboseMessages.contains("SprigIntegration: hello from Sprig"))
-        }
+        #expect(capturingLogger.verboseMessages.contains("SprigIntegration: hello from Sprig"))
     }
 
     // MARK: - Teardown Tests
 
     @Test("Given logging listener registered, when teardown is called, then unregisters listener")
     func testTeardownUnregistersLoggingListener() throws {
-        try withLogLevel(.debug) {
-            let (integration, mock) = createIntegration()
-            try integration.create(destinationConfig: ["environmentId": "test-env-123"])
-            #expect(mock.registerLoggingListenerCalls.count == 1)
-            #expect(mock.unregisterLoggingListenerCalled == false)
+        let (integration, mock) = createIntegration(logLevel: .debug)
+        try integration.create(destinationConfig: ["environmentId": "test-env-123"])
+        #expect(mock.registerLoggingListenerCalls.count == 1)
+        #expect(mock.unregisterLoggingListenerCalled == false)
 
-            integration.teardown()
+        integration.teardown()
 
-            #expect(mock.unregisterLoggingListenerCalled == true)
-        }
+        #expect(mock.unregisterLoggingListenerCalled == true)
     }
 
     @Test("Given no logging listener registered, when teardown is called, then does not call unregister")
     func testTeardownDoesNotUnregisterWhenNotRegistered() throws {
-        try withLogLevel(.none) {
-            let (integration, mock) = createIntegration()
-            try integration.create(destinationConfig: ["environmentId": "test-env-123"])
-            #expect(mock.registerLoggingListenerCalls.isEmpty)
+        let (integration, mock) = createIntegration(logLevel: LogLevel.none)
+        try integration.create(destinationConfig: ["environmentId": "test-env-123"])
+        #expect(mock.registerLoggingListenerCalls.isEmpty)
 
-            integration.teardown()
+        integration.teardown()
 
-            #expect(mock.unregisterLoggingListenerCalled == false)
-        }
+        #expect(mock.unregisterLoggingListenerCalled == false)
     }
 
     @Test("Given viewController is set, when teardown is called, then track falls back to plain track")
@@ -405,39 +382,36 @@ struct SprigIntegrationTests {
 
     @Test("Given teardown was called, when create is called again, then re-registers logging listener")
     func testTeardownAllowsReRegistration() throws {
-        try withLogLevel(.debug) {
-            let (integration, mock) = createIntegration()
-            try integration.create(destinationConfig: ["environmentId": "test-env-123"])
-            integration.teardown()
+        let (integration, mock) = createIntegration(logLevel: .debug)
+        try integration.create(destinationConfig: ["environmentId": "test-env-123"])
+        integration.teardown()
 
-            try integration.create(destinationConfig: ["environmentId": "test-env-123"])
+        try integration.create(destinationConfig: ["environmentId": "test-env-123"])
 
-            #expect(mock.registerLoggingListenerCalls.count == 2)
-        }
+        #expect(mock.registerLoggingListenerCalls.count == 2)
     }
 
     // MARK: - Lite Mode Tests
 
     @Test("Given lite mode, when create runs with no environmentId, then with one before and after a teardown, then Sprig is never configured and the app's instance is kept")
     func testLiteModeCreateKeepsAppInstance() throws {
-        try withLogLevel(.debug) {
-            let appSprig = NSObject()
-            let mock = MockSprigAdapter()
-            let integration = SprigIntegration(sprigAdapter: mock, appSprigInstance: appSprig)
+        let appSprig = NSObject()
+        let mock = MockSprigAdapter()
+        let integration = SprigIntegration(sprigAdapter: mock, appSprigInstance: appSprig)
+        integration.analytics = makeAnalytics(logLevel: .debug)
 
-            #expect(throws: SprigIntegrationError.invalidEnvironmentId) {
-                try integration.create(destinationConfig: [:])
-            }
-            #expect(integration.getDestinationInstance() == nil)
-
-            try integration.create(destinationConfig: ["environmentId": "test-env-123"])
-            integration.teardown()
-            try integration.create(destinationConfig: ["environmentId": "test-env-123"])
-
-            #expect(mock.configureCalls.isEmpty)
-            #expect(mock.registerLoggingListenerCalls.count == 2)
-            #expect(integration.getDestinationInstance() as? NSObject === appSprig)
+        #expect(throws: SprigIntegrationError.invalidEnvironmentId) {
+            try integration.create(destinationConfig: [:])
         }
+        #expect(integration.getDestinationInstance() == nil)
+
+        try integration.create(destinationConfig: ["environmentId": "test-env-123"])
+        integration.teardown()
+        try integration.create(destinationConfig: ["environmentId": "test-env-123"])
+
+        #expect(mock.configureCalls.isEmpty)
+        #expect(mock.registerLoggingListenerCalls.count == 2)
+        #expect(integration.getDestinationInstance() as? NSObject === appSprig)
     }
 
     @Test("Given lite mode and a presentable viewController, when track is called, then calls trackAndPresent")
@@ -494,7 +468,7 @@ struct SprigUtilsTests {
 
     private func capture(_ traits: [String: Any]) -> (mock: MockSprigAdapter, attributes: [String: Any]) {
         let mock = MockSprigAdapter()
-        SprigUtils.setSprigAttributes(traits, adapter: mock)
+        SprigUtils.setSprigAttributes(traits, adapter: mock, logger: SilentLogger())
         let attributes = Dictionary(uniqueKeysWithValues: mock.setVisitorAttributeCalls.map { ($0.key, $0.value) })
         return (mock, attributes)
     }

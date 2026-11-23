@@ -22,7 +22,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 import inventory_fixture  # noqa: F401,E402  (default package list for tests)
 from common import ROOT, load, write_json
 from package_ci import (failed_needs, failures, main, manifest_problems, matrix, scope_warnings, test_command, test_scheme,
-                        test_targets, xcode_env)
+                        test_targets, xcode_env, DEFAULT_XCODE)
 
 FIXTURE = ROOT / "Tests/Fixtures/demo"
 PICK = ROOT / "scripts/ci/pick-simulator.sh"
@@ -224,8 +224,11 @@ class XcodeTests(unittest.TestCase):
                 contextlib.redirect_stderr(io.StringIO()):
             return xcode_env(key, self.root)
 
-    def test_package_without_xcode_keeps_the_runner_default(self):
-        self.assertEqual(self.env("sprig"), "")
+    def test_package_without_xcode_and_no_package_get_the_default_xcode(self):
+        developer = self.apps / f"Xcode_{DEFAULT_XCODE}.app/Contents/Developer"
+        developer.mkdir(parents=True)
+        self.assertEqual(self.env("sprig"), f"DEVELOPER_DIR={developer}")
+        self.assertEqual(self.env(None), f"DEVELOPER_DIR={developer}")
 
     def test_package_with_xcode_gets_its_developer_dir(self):
         developer = self.apps / "Xcode_26.2.app/Contents/Developer"

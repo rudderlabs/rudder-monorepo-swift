@@ -86,7 +86,7 @@ This integration supports Firebase iOS SDK version:
 
 ### Migrating to 3.0.0
 
-Version 3.0.0 requires Firebase iOS SDK 13 (`>=13.0.0, <14.0.0`), replacing 12.x.
+Version 3.0.0 requires Firebase iOS SDK 13 (`>=13.0.0, <14.0.0`), replacing 12.x. Build with Xcode 26.2 or later; Firebase iOS SDK 13 requires it.
 
 - If your app does not add Firebase itself, update the integration. No other change is needed.
 - If your app adds Firebase itself, change that requirement to 13.x. Check the breaking changes in the [Firebase iOS release notes](https://firebase.google.com/support/release-notes/ios).

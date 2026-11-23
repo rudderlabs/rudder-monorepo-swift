@@ -146,6 +146,7 @@
         }
       },
       "repository": "integration-swift-facebook",
+      "runner": "macos-26",
       "sdkMinimum": "2.0.0",
       "target": "RudderIntegrationFacebook",
       "toolsVersion": "5.9",
@@ -163,7 +164,8 @@
           },
           "url": "https://github.com/facebook/facebook-ios-sdk"
         }
-      ]
+      ],
+      "xcode": "26.4.1"
     },
     "firebase": {
       "component": "integration-firebase",
@@ -192,9 +194,9 @@
           "identity": "firebase-ios-sdk",
           "product": "FirebaseAnalytics",
           "requirement": {
-            "kind": "upToNextMajor",
+            "kind": "range",
             "lower": "12.5.0",
-            "upper": "13.0.0"
+            "upper": "14.0.0"
           },
           "url": "https://github.com/firebase/firebase-ios-sdk"
         },
@@ -202,9 +204,9 @@
           "identity": "firebase-ios-sdk",
           "product": "FirebaseCore",
           "requirement": {
-            "kind": "upToNextMajor",
+            "kind": "range",
             "lower": "12.5.0",
-            "upper": "13.0.0"
+            "upper": "14.0.0"
           },
           "url": "https://github.com/firebase/firebase-ios-sdk"
         }

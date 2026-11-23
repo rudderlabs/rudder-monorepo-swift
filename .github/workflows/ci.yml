@@ -19,12 +19,13 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
   packages:
-    # The CI plan: package keys for the test and export matrices (`[]` skips the job) and whether policy runs.
+    # The CI plan: package keys for the test and export matrices (`[]` skips the job), policy, and each package's runner.
     runs-on: ubuntu-latest
     outputs:
       test: ${{ steps.plan.outputs.test }}
       export: ${{ steps.plan.outputs.export }}
       policy: ${{ steps.plan.outputs.policy }}
+      runners: ${{ steps.plan.outputs.runners }}
     steps:
       - name: Harden the runner (Audit all outbound calls)
         uses: step-security/harden-runner@351661ca32ac09a36dc5ee2d536e3128f2a3c8ed # v2.22.0
@@ -104,7 +105,7 @@ jobs:
     name: test (${{ matrix.package }})
     needs: packages
     if: needs.packages.outputs.test != '[]'
-    runs-on: macos-15
+    runs-on: ${{ fromJSON(needs.packages.outputs.runners)[matrix.package] }}
     timeout-minutes: 60
     strategy:
       fail-fast: false
@@ -135,7 +136,7 @@ jobs:
     name: export (${{ matrix.package }})
     needs: packages
     if: needs.packages.outputs.export != '[]'
-    runs-on: macos-15
+    runs-on: ${{ fromJSON(needs.packages.outputs.runners)[matrix.package] }}
     timeout-minutes: 60
     strategy:
       fail-fast: false

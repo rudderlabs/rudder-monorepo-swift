@@ -16,7 +16,7 @@ struct ObjCCleverTapIntegrationTests {
 
     private func makeAnalytics() -> Analytics {
         let config = Configuration(
-            writeKey: "test-write-key",
+            writeKey: "test-write-key-\(UUID().uuidString)",
             dataPlaneUrl: "https://test.rudderstack.com"
         )
         return Analytics(configuration: config)

@@ -6,7 +6,7 @@ reserved: it is reviewed in advance (for an import) but nothing publishes to it 
 import json
 import re
 
-from common import ROOT, allowlist, load
+from common import ROOT, RUNNERS, allowlist, load
 from generate_github import stale
 
 FIELDS = ("path", "target", "component", "repository")
@@ -39,6 +39,8 @@ def problems(root=ROOT):
             errors.append(f"{key}: title must be a non-empty string (the public Release heading)")
         if "xcode" in package and not (isinstance(package["xcode"], str) and XCODE.fullmatch(package["xcode"])):
             errors.append(f"{key}: xcode must be an Xcode version such as \"26.2\" (the package's CI and release builds)")
+        if "runner" in package and package["runner"] not in RUNNERS:
+            errors.append(f"{key}: runner must be one of {', '.join(RUNNERS)} (the package's CI and release builds)")
         if names.get(key) != package.get("repository"):
             errors.append(f"{key}: repository {package.get('repository')!r} differs from allowlist {names.get(key)!r}")
     for field in ("path", "component"):

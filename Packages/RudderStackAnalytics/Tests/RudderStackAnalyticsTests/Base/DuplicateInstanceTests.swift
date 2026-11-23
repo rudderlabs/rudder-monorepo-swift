@@ -1,0 +1,175 @@
+//
+//  DuplicateInstanceTests.swift
+//  RudderStackAnalyticsTests
+//
+
+import Foundation
+import Testing
+@_spi(RudderStackWrapper) @testable import RudderStackAnalytics
+
+@Suite("Duplicate Instance Tests")
+struct DuplicateInstanceTests {
+
+    private let refusedMessage = "An instance for this write key already runs in this process"
+
+    private func makeConfiguration(writeKey: String, logger: MockLogger = MockLogger()) -> Configuration {
+        let config = MockProvider.createMockConfiguration(writeKey: writeKey)
+        config.trackApplicationLifecycleEvents = false
+        config.sessionConfiguration.automaticSessionTracking = false
+        config.logger = logger
+        return config
+    }
+
+    private func makeAnalytics(writeKey: String, logger: MockLogger = MockLogger()) -> Analytics {
+        Analytics(configuration: makeConfiguration(writeKey: writeKey, logger: logger))
+    }
+
+    @Test("given a running instance, when a second instance starts for its write key, then the second logs one error and ignores calls, and the first keeps sending")
+    func testSecondInstanceIsRefused() async {
+        let writeKey = MockConstant.mockWriteKey
+        let firstLogger = MockLogger()
+        let secondLogger = MockLogger()
+        let first = makeAnalytics(writeKey: writeKey, logger: firstLogger)
+        let firstPlugin = MockEventCapturePlugin()
+        first.add(plugin: firstPlugin)
+
+        let second = makeAnalytics(writeKey: writeKey, logger: secondLogger)
+        second.track(name: "from second")
+        first.track(name: "from first")
+
+        let events = await firstPlugin.waitForEvents(TrackEvent.self, timeout: 1)
+        #expect(events.map(\.event) == ["from first"])
+        #expect(!first.isAnalyticsShutdown)
+        #expect(second.isAnalyticsShutdown)
+        #expect(secondLogger.logs.filter { $0.message.contains(refusedMessage) }.count == 1)
+        #expect(!firstLogger.hasLog(level: "ERROR", containing: refusedMessage))
+        first.shutdown()
+    }
+
+    @Test("given a running and a refused instance for a write key, when a wrapper looks up the write key, then it finds only the running instance while it runs")
+    func testFindReturnsOnlyTheRunningInstance() {
+        let writeKey = MockConstant.mockWriteKey
+        #expect(RunningWriteKeys.find(writeKey) == nil)
+
+        let running = makeAnalytics(writeKey: writeKey)
+        _ = makeAnalytics(writeKey: writeKey)
+        #expect(RunningWriteKeys.find(writeKey) === running)
+
+        running.shutdown()
+        #expect(RunningWriteKeys.find(writeKey) == nil)
+    }
+
+    @Test("given an instance that is starting, when a wrapper looks up its write key, then it finds the instance only after the start completes")
+    func testFindWaitsForTheStartToComplete() {
+        let writeKey = MockConstant.mockWriteKey
+        let logger = LookupLogger(writeKey: writeKey)
+        let config = MockProvider.createMockConfiguration(writeKey: writeKey)
+        config.trackApplicationLifecycleEvents = false
+        config.sessionConfiguration.automaticSessionTracking = false
+        // Consent without consent IDs makes the start log a line after it claims the write key.
+        config.consentManagement = ConsentManagementConfiguration(enabled: true)
+        config.logger = logger
+
+        let analytics = Analytics(configuration: config)
+
+        #expect(logger.foundDuringStart == [false])
+        #expect(RunningWriteKeys.find(writeKey) === analytics)
+        analytics.shutdown()
+    }
+
+    @Test("given a refused instance, when it shuts down, then the running instance keeps the write key")
+    func testRefusedInstanceDoesNotFreeWriteKey() {
+        let writeKey = MockConstant.mockWriteKey
+        let first = makeAnalytics(writeKey: writeKey)
+        let refused = makeAnalytics(writeKey: writeKey)
+
+        refused.shutdown()
+        let third = makeAnalytics(writeKey: writeKey)
+
+        #expect(!first.isAnalyticsShutdown)
+        #expect(third.isAnalyticsShutdown)
+        first.shutdown()
+    }
+
+    @Test("given a running instance, when it stops, then a new instance for its write key starts",
+          arguments: [false, true])
+    func testStoppedInstanceFreesWriteKey(invalidWriteKey: Bool) {
+        let writeKey = MockConstant.mockWriteKey
+        let first = makeAnalytics(writeKey: writeKey)
+        let logger = MockLogger()
+
+        if invalidWriteKey {
+            first.handleInvalidWriteKey()
+        } else {
+            first.shutdown()
+        }
+        let next = makeAnalytics(writeKey: writeKey, logger: logger)
+
+        #expect(!next.isAnalyticsShutdown)
+        #expect(!logger.hasLog(level: "ERROR", containing: refusedMessage))
+        next.shutdown()
+    }
+
+    @Test("given instances for different write keys, when they start, then both run")
+    func testDifferentWriteKeysBothRun() {
+        let logger = MockLogger()
+        let first = makeAnalytics(writeKey: MockConstant.mockWriteKey, logger: logger)
+        let second = makeAnalytics(writeKey: MockConstant.mockWriteKey, logger: logger)
+
+        #expect(!first.isAnalyticsShutdown)
+        #expect(!second.isAnalyticsShutdown)
+        #expect(!logger.hasLog(level: "ERROR", containing: refusedMessage))
+        first.shutdown()
+        second.shutdown()
+    }
+
+    @Test("given many threads, when each starts an instance for one write key, then exactly one instance runs")
+    func testConcurrentStartsKeepOneInstance() {
+        let writeKey = MockConstant.mockWriteKey
+        let lock = NSLock()
+        var instances: [Analytics] = []
+        // The mock setup replaces a shared network session, so it runs before the threads start.
+        let configurations = (0..<8).map { _ in makeConfiguration(writeKey: writeKey) }
+
+        DispatchQueue.concurrentPerform(iterations: configurations.count) { index in
+            let analytics = Analytics(configuration: configurations[index])
+            lock.lock()
+            instances.append(analytics)
+            lock.unlock()
+        }
+
+        let running = instances.filter { !$0.isAnalyticsShutdown }
+        #expect(running.count == 1)
+        running.forEach { $0.shutdown() }
+    }
+}
+
+/// Looks up the write key when the start logs its consent line, so a test sees what a wrapper SDK finds during the start.
+private final class LookupLogger: Logger {
+    private let writeKey: String
+    private let lock = NSLock()
+    private var found: [Bool] = []
+
+    init(writeKey: String) {
+        self.writeKey = writeKey
+    }
+
+    var foundDuringStart: [Bool] {
+        lock.lock()
+        defer { lock.unlock() }
+        return found
+    }
+
+    func info(log: String) {
+        guard log.contains("Consent management is enabled") else { return }
+        let isFound = RunningWriteKeys.find(writeKey) != nil
+        lock.lock()
+        found.append(isFound)
+        lock.unlock()
+    }
+
+    func verbose(log: String) {}
+    func debug(log: String) {}
+    func warn(log: String) {}
+    func error(log: String, error: Error?) {}
+}

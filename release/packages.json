@@ -52,18 +52,18 @@
       "target": "RudderIntegrationAppsFlyer",
       "toolsVersion": "5.9",
       "vendorProducts": [
-        "AppsFlyerLib-Static"
+        "AppsFlyerLib"
       ],
       "vendors": [
         {
-          "identity": "appsflyerframework-static",
-          "product": "AppsFlyerLib-Static",
+          "identity": "appsflyerframework",
+          "product": "AppsFlyerLib",
           "requirement": {
             "kind": "upToNextMajor",
             "lower": "7.0.1",
             "upper": "8.0.0"
           },
-          "url": "https://github.com/AppsFlyerSDK/AppsFlyerFramework-Static"
+          "url": "https://github.com/AppsFlyerSDK/AppsFlyerFramework"
         }
       ]
     },

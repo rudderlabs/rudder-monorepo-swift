@@ -146,6 +146,7 @@
         }
       },
       "repository": "integration-swift-facebook",
+      "runner": "macos-26",
       "sdkMinimum": "2.0.0",
       "target": "RudderIntegrationFacebook",
       "toolsVersion": "5.9",
@@ -163,7 +164,8 @@
           },
           "url": "https://github.com/facebook/facebook-ios-sdk"
         }
-      ]
+      ],
+      "xcode": "26.4.1"
     },
     "firebase": {
       "component": "integration-firebase",

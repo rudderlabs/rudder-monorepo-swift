@@ -9,7 +9,7 @@ import json
 import os
 import sys
 
-from common import ROOT, git, inventory
+from common import ROOT, git, inventory, runner
 from release_plan import affected
 
 # A trailing slash matches a folder. The scripts the package-job runner (package_ci.py) imports also count as BUILD.
@@ -140,6 +140,7 @@ def main(argv=None):
     else:
         plan = ci_plan(changed(args.base), base_ref=base_commit(args.base),
                        with_dependents=not args.no_dependents)
+    plan["runners"] = {key: runner(package) for key, package in inventory().items()}
     if os.environ.get("GITHUB_OUTPUT"):
         with open(os.environ["GITHUB_OUTPUT"], "a") as output:
             for name, value in plan.items():

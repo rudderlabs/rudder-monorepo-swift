@@ -92,14 +92,8 @@ class MatrixTests(unittest.TestCase):
         self.assertIn("needs: [packages, policy, lint, test, export]", block)
         jobs = [line[2:-1] for line in WORKFLOW.split("\njobs:\n", 1)[1].splitlines()
                 if line.startswith("  ") and not line.startswith("   ") and line.endswith(":")]
-        # sonarcloud is advisory: outside ci-ok, so it never changes the required check.
-        self.assertEqual(sorted(jobs), sorted(["packages", "policy", "lint", "test", "export", "ci-ok",
-                                               "sonarcloud"]))
-
-    def test_sonarcloud_runs_only_when_enabled(self):
-        block = WORKFLOW.split("\n  sonarcloud:\n", 1)[1].split("\n\n  ", 1)[0]
-        self.assertIn("if: vars.SONARCLOUD_ENABLED == 'true' && (github.event_name == 'push' || "
-                      "github.event.pull_request.head.repo.full_name == github.repository)", block)
+        # SonarCloud runs as SonarCloud Automatic Analysis, outside CI, so no job needs SONAR_TOKEN.
+        self.assertEqual(sorted(jobs), sorted(["packages", "policy", "lint", "test", "export", "ci-ok"]))
 
     def test_ci_ok_passes_skipped_and_fails_failed_or_cancelled(self):
         self.assertEqual(failed_needs({"policy": {"result": "success"}, "test": {"result": "skipped"}}), [])

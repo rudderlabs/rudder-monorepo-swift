@@ -4,7 +4,7 @@ name: PR Validation
 # D34: the package jobs and `policy` run only for what a PR or push affects (ci_plan.py); a push compares with its
 # previous commit and runs all when that commit is unknown (new branch, force push).
 # `ci-ok` is the only required check: the matrix job names change as packages are added.
-# `sonarcloud` stays outside `ci-ok` (advisory) until it is green. The Slack PR summary is pr-slack-summary.yml,
+# SonarCloud runs as SonarCloud Automatic Analysis, outside CI. The Slack PR summary is pr-slack-summary.yml,
 # which runs after this workflow completes.
 # Every command lives in scripts/ (ci_plan.py, package_ci.py), so `make test` and `make lint` run the same commands.
 on:
@@ -183,35 +183,3 @@ jobs:
         run: python3 scripts/package_ci.py ci-ok
         env:
           NEEDS: ${{ toJSON(needs) }}
-
-  sonarcloud:
-    # SonarCloud code quality (ported from rudder-sdk-swift pr-validation). Scans the package sources that exist;
-    # with no packages yet there is nothing to scan and the job passes. Skipped until the repository variable
-    # SONARCLOUD_ENABLED is `true` (set it once the SonarCloud project exists).
-    # Fork PRs get no SONAR_TOKEN, so they skip the job instead of failing (as in rudder-sdk-react-native).
-    if: vars.SONARCLOUD_ENABLED == 'true' && (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository)
-    runs-on: ubuntu-latest
-    environment: sonarcloud
-    steps:
-      - name: Harden the runner (Audit all outbound calls)
-        uses: step-security/harden-runner@351661ca32ac09a36dc5ee2d536e3128f2a3c8ed # v2.22.0
-        with:
-          egress-policy: audit
-
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
-        with:
-          persist-credentials: false
-          fetch-depth: 0  # full history for Sonar's new-code and blame data
-      - name: Source folders to scan
-        id: sources
-        run: |
-          sources=""
-          for d in Packages Integrations; do if [ -d "$d" ]; then sources="${sources}${d},"; fi; done
-          echo "list=${sources%,}" >> "$GITHUB_OUTPUT"
-          [ -n "$sources" ] || echo "::notice::No package sources yet; SonarCloud has nothing to scan"
-      - name: SonarCloud analysis
-        if: steps.sources.outputs.list != ''
-        uses: ./.github/actions/sonarcloud-analysis
-        with:
-          sonar_token: ${{ secrets.SONAR_TOKEN }}
-          sources: ${{ steps.sources.outputs.list }}

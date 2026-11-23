@@ -2,7 +2,7 @@
   "Packages/RudderStackAnalytics": "2.3.0",
   "Integrations/Sprig": "2.0.1",
   "Integrations/Firebase": "3.0.0",
-  "Integrations/Adjust": "2.0.2",
+  "Integrations/Adjust": "2.1.0",
   "Integrations/Facebook": "3.0.0",
   "Integrations/AppsFlyer": "4.0.0",
   "Integrations/CleverTap": "2.0.1",

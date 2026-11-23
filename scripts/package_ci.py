@@ -15,7 +15,7 @@ import sys
 import tempfile
 from xml.sax.saxutils import quoteattr
 
-from common import ROOT, anonymous_env, git, inventory, run, url
+from common import ROOT, anonymous_env, git, inventory, run, runner, url
 from dependency_policy import manifest
 from project import PLATFORM, export, platform_builds
 
@@ -26,6 +26,8 @@ PICK_SIMULATOR = ROOT / "scripts/ci/pick-simulator.sh"
 SCHEME = "package-ci-{}"
 # Where the GitHub macOS runner images install each Xcode.
 DEVELOPER_DIR = "/Applications/Xcode_{}.app/Contents/Developer"
+# The oldest Xcode the monorepo supports: CI and release builds use it unless a package sets `xcode`.
+DEFAULT_XCODE = "26.2"
 
 
 def matrix(root=ROOT):
@@ -183,20 +185,21 @@ def export_check(key, root=ROOT):
         print(f"export ({key}): generic iOS build passed")
 
 
-def xcode_env(key, root=ROOT):
-    """`DEVELOPER_DIR=<path>` for $GITHUB_ENV when the package sets `xcode` in release/packages.json, else "".
-    Packages without it build with the runner's default Xcode, the oldest one the monorepo supports."""
+def entry(key, root=ROOT):
     packages = inventory(root)
     if key not in packages:
         raise ValueError(f"Unknown package: {key} (known: {', '.join(packages) or 'none'})")
-    version = packages[key].get("xcode")
-    if not version:
-        print(f"xcode ({key}): runner default", file=sys.stderr)
-        return ""
+    return packages[key]
+
+
+def xcode_env(key=None, root=ROOT):
+    """`DEVELOPER_DIR=<path>` for $GITHUB_ENV: the package's `xcode` in release/packages.json, else DEFAULT_XCODE."""
+    name = key or "default"
+    version = entry(key, root).get("xcode", DEFAULT_XCODE) if key else DEFAULT_XCODE
     path = DEVELOPER_DIR.format(version)
     if not Path(path).is_dir():
-        raise ValueError(f"{key}: Xcode {version} is not installed at {path}")
-    print(f"xcode ({key}): {path}", file=sys.stderr)
+        raise ValueError(f"{name}: Xcode {version} is not installed at {path}")
+    print(f"xcode ({name}): {path}", file=sys.stderr)
     return f"DEVELOPER_DIR={path}"
 
 
@@ -255,7 +258,10 @@ def main(argv=None):
     command.add_argument("--package", action="append")
     commands.add_parser("export-check", help="export, manifest check and iOS build").add_argument(
         "--package", required=True)
-    command = commands.add_parser("xcode", help="DEVELOPER_DIR line for $GITHUB_ENV (empty: runner default)")
+    command = commands.add_parser("xcode", help="DEVELOPER_DIR line for $GITHUB_ENV (without --package: the default)")
+    command.add_argument("--package")
+    command.add_argument("--root", type=Path, default=ROOT)
+    command = commands.add_parser("runner", help="runner=<image> line for $GITHUB_OUTPUT")
     command.add_argument("--package", required=True)
     command.add_argument("--root", type=Path, default=ROOT)
     command = commands.add_parser("lint", help="SwiftLint on changed files, or --all")
@@ -276,9 +282,9 @@ def main(argv=None):
     elif args.command == "export-check":
         export_check(args.package)
     elif args.command == "xcode":
-        line = xcode_env(args.package, args.root)
-        if line:
-            print(line)
+        print(xcode_env(args.package, args.root))
+    elif args.command == "runner":
+        print(f"runner={runner(entry(args.package, args.root))}")
     elif args.command == "lint":
         return lint(None if args.all else changed_swift(args.base), strict=args.strict, reporter=args.reporter)
     elif args.command == "scope-hint":

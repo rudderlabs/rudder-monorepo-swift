@@ -11,9 +11,16 @@ import RudderStackAnalytics
 @testable import RudderIntegrationBraze
 
 /**
+ * Logger that drops every message.
+ */
+struct SilentLogger: Logger {}
+
+/**
  * Mock implementation of BrazeAdapter for testing
  */
 class MockBrazeAdapter: BrazeAdapter {
+
+    var logger: Logger?
 
     // MARK: - Tracking Variables
     var isInitialized = false

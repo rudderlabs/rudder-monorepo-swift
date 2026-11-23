@@ -1,14 +1,14 @@
 {
   "schemaVersion": 2,
-  "sdkMinimum": "2.0.0",
+  "sdkMinimum": "2.3.0",
   "vendors": [
     {
       "identity": "braze-swift-sdk-prebuilt-static",
       "product": "BrazeKit",
       "requirement": {
         "kind": "upToNextMajor",
-        "lower": "18.2.0",
-        "upper": "19.0.0"
+        "lower": "19.0.0",
+        "upper": "20.0.0"
       },
       "url": "https://github.com/braze-inc/braze-swift-sdk-prebuilt-static"
     }

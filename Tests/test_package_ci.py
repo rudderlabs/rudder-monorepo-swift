@@ -216,7 +216,7 @@ class XcodeTests(unittest.TestCase):
         self.apps = Path(temp.name) / "Applications"
         path = self.root / "release/packages.json"
         data = load(path)
-        data["packages"]["firebase"]["xcode"] = "26.2"
+        data["packages"]["firebase"].update(xcode="26.2", runner="macos-26")
         write_json(path, data)
 
     def env(self, key):
@@ -237,6 +237,30 @@ class XcodeTests(unittest.TestCase):
             self.env("firebase")
         with self.assertRaisesRegex(ValueError, "Unknown package: zzz"):
             self.env("zzz")
+
+    def test_runner_line_for_github_output_defaults_to_macos_15(self):
+        for key, expected in (("sprig", "runner=macos-15\n"), ("firebase", "runner=macos-26\n")):
+            with contextlib.redirect_stdout(io.StringIO()) as output:
+                self.assertEqual(main(["runner", "--package", key, "--root", str(self.root)]), 0)
+            self.assertEqual(output.getvalue(), expected)
+        with self.assertRaisesRegex(ValueError, "Unknown package: zzz"):
+            main(["runner", "--package", "zzz", "--root", str(self.root)])
+        data = json.loads((self.root / "release/packages.json").read_text())
+        data["packages"]["sprig"]["runner"] = "self-hosted"
+        (self.root / "release/packages.json").write_text(json.dumps(data))
+        with self.assertRaisesRegex(ValueError, "runner must be one of macos-15, macos-26, not 'self-hosted'"):
+            main(["runner", "--package", "sprig", "--root", str(self.root)])
+
+    def test_package_jobs_and_the_publication_run_on_the_package_runner(self):
+        for job in ("test", "export"):
+            text = WORKFLOW.split(f"\n  {job}:\n", 1)[1].split("\n    steps:\n", 1)[0]
+            self.assertIn("runs-on: ${{ fromJSON(needs.packages.outputs.runners)[matrix.package] }}", text, job)
+        runner, publish = PUBLISH.split("\n  runner:\n", 1)[1].split("\n  publish:\n", 1)
+        self.assertIn('python3 scripts/package_ci.py runner --package "$PACKAGE" --root .lab/release-source'
+                      ' >> "$GITHUB_OUTPUT"', runner)
+        self.assertIn("ref: ${{ inputs.source_sha }}", runner)
+        self.assertEqual(runner.split("\n    runs-on:", 1)[0].split("    if: ", 1)[1], publish.split("    if: ", 1)[1].split("\n", 1)[0])
+        self.assertIn("needs: runner\n    runs-on: ${{ needs.runner.outputs.runner }}\n", publish)
 
     def test_package_jobs_and_the_publication_select_the_xcode_before_building(self):
         step = 'python3 scripts/package_ci.py xcode --package "$PACKAGE"'

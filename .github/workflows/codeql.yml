@@ -37,7 +37,7 @@ jobs:
         run: |
           include='{"language":"actions","build-mode":"none","runner":"ubuntu-latest"}'
           if [ -f Package.swift ]; then
-            include="$include,"'{"language":"swift","build-mode":"manual","runner":"macos-15"}'
+            include="$include,"'{"language":"swift","build-mode":"manual","runner":"macos-26"}'
           else
             echo "::notice::No Package.swift yet (no packages imported); scanning workflows only"
           fi
@@ -70,11 +70,11 @@ jobs:
         with:
           languages: ${{ matrix.language }}
           build-mode: ${{ matrix.build-mode }}
-      - name: Select the default Xcode
-        if: matrix.build-mode == 'manual'
-        run: python3 scripts/package_ci.py xcode >> "$GITHUB_ENV"
       - name: Build Swift packages
         if: matrix.build-mode == 'manual'
+        env:
+          # Keep in step with the newest `xcode` in release/packages.json, so that every package builds here.
+          DEVELOPER_DIR: /Applications/Xcode_26.4.1.app/Contents/Developer
         run: |
           # SwiftPM adds a `<name>-Package` scheme only for two or more products; with one, its scheme is the only one.
           scheme="$(xcodebuild -list -json | python3 -c 'import json, sys; s = json.load(sys.stdin)["workspace"]["schemes"]; print(next((x for x in s if x.endswith("-Package")), s[0] if len(s) == 1 else ""))')"

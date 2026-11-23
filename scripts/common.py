@@ -13,6 +13,7 @@ SOURCE_NAME = "rudder-monorepo-swift"
 OWNER = "rudderlabs"
 RELEASE_BRANCH = "main"
 SDK = "swift-sdk"  # the core SDK's package key; integrations depend on it
+RUNNERS = ("macos-15", "macos-26")  # GitHub macOS runner images a package can build on; the first is the default
 
 
 def run(args, cwd=ROOT, env=None):
@@ -74,6 +75,14 @@ def inventory(root=ROOT):
         if names.get(key) != package.get("repository"):
             raise ValueError(f"Package is not allowlisted with its repository: {key}")
     return {key: packages[key] for key in names if key in packages}
+
+
+def runner(package):
+    """The GitHub runner image for the package's CI and release builds: its `runner` in release/packages.json."""
+    image = package.get("runner", RUNNERS[0])
+    if image not in RUNNERS:
+        raise ValueError(f"runner must be one of {', '.join(RUNNERS)}, not {image!r}")
+    return image
 
 
 def file_hashes(root):

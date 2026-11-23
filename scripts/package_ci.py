@@ -15,7 +15,7 @@ import sys
 import tempfile
 from xml.sax.saxutils import quoteattr
 
-from common import ROOT, anonymous_env, git, inventory, run, url
+from common import ROOT, anonymous_env, git, inventory, run, runner, url
 from dependency_policy import manifest
 from project import PLATFORM, export, platform_builds
 
@@ -185,15 +185,17 @@ def export_check(key, root=ROOT):
         print(f"export ({key}): generic iOS build passed")
 
 
+def entry(key, root=ROOT):
+    packages = inventory(root)
+    if key not in packages:
+        raise ValueError(f"Unknown package: {key} (known: {', '.join(packages) or 'none'})")
+    return packages[key]
+
+
 def xcode_env(key=None, root=ROOT):
     """`DEVELOPER_DIR=<path>` for $GITHUB_ENV: the package's `xcode` in release/packages.json, else DEFAULT_XCODE."""
     name = key or "default"
-    version = DEFAULT_XCODE
-    if key:
-        packages = inventory(root)
-        if key not in packages:
-            raise ValueError(f"Unknown package: {key} (known: {', '.join(packages) or 'none'})")
-        version = packages[key].get("xcode", DEFAULT_XCODE)
+    version = entry(key, root).get("xcode", DEFAULT_XCODE) if key else DEFAULT_XCODE
     path = DEVELOPER_DIR.format(version)
     if not Path(path).is_dir():
         raise ValueError(f"{name}: Xcode {version} is not installed at {path}")
@@ -259,6 +261,9 @@ def main(argv=None):
     command = commands.add_parser("xcode", help="DEVELOPER_DIR line for $GITHUB_ENV (without --package: the default)")
     command.add_argument("--package")
     command.add_argument("--root", type=Path, default=ROOT)
+    command = commands.add_parser("runner", help="runner=<image> line for $GITHUB_OUTPUT")
+    command.add_argument("--package", required=True)
+    command.add_argument("--root", type=Path, default=ROOT)
     command = commands.add_parser("lint", help="SwiftLint on changed files, or --all")
     command.add_argument("--base", default="origin/main")
     command.add_argument("--all", action="store_true")
@@ -278,6 +283,8 @@ def main(argv=None):
         export_check(args.package)
     elif args.command == "xcode":
         print(xcode_env(args.package, args.root))
+    elif args.command == "runner":
+        print(f"runner={runner(entry(args.package, args.root))}")
     elif args.command == "lint":
         return lint(None if args.all else changed_swift(args.base), strict=args.strict, reporter=args.reporter)
     elif args.command == "scope-hint":

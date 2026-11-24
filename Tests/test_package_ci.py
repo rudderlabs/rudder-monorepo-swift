@@ -21,7 +21,7 @@ os.environ["GIT_CONFIG_NOSYSTEM"] = "1"
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 import inventory_fixture  # noqa: F401,E402  (default package list for tests)
 from common import ROOT, load, write_json
-from package_ci import (coverage, failed_needs, failures, main, manifest_problems, matrix, report_coverage, scope_warnings,
+from package_ci import (clear_coverage, coverage, failed_needs, failures, main, manifest_problems, matrix, report_coverage, scope_warnings,
                         test_command, test_scheme, test_targets, xcode_env, DEFAULT_XCODE)
 
 FIXTURE = ROOT / "Tests/Fixtures/demo"
@@ -162,6 +162,25 @@ class TestTargetTests(unittest.TestCase):
             self.assertEqual(json.loads((root / ".build/coverage/sprig.json").read_text()),
                              {"package": "sprig", "coveredLines": 30, "executableLines": 40})
             self.assertFalse((root / ".build/coverage/braze.json").exists())
+
+    def test_report_coverage_write_errors_do_not_fail(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / ".build/coverage/sprig.json").mkdir(parents=True)  # a directory where the file goes
+            with patch("sys.stdout", new_callable=io.StringIO) as out:
+                report_coverage("sprig", (30, 40), root, {"GITHUB_STEP_SUMMARY": str(root / "missing/summary.md")})
+            self.assertIn("could not write the job summary", out.getvalue())
+            self.assertIn("could not write .build/coverage/sprig.json", out.getvalue())
+
+    def test_clear_coverage_removes_the_earlier_report(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            report = root / ".build/coverage/sprig.json"
+            report.parent.mkdir(parents=True)
+            report.write_text("{}")
+            clear_coverage("sprig", root)
+            self.assertFalse(report.exists())
+            clear_coverage("sprig", root)  # no earlier report: nothing to do
 
     def test_command_uses_the_package_test_scheme_and_the_picked_simulator(self):
         command = test_command(DEMO, "sprig", {"path": "Integrations/Sprig", "target": "DemoSprig"}, "UDID-1", "/tmp/r.xcresult")

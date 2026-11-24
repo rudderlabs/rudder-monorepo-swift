@@ -135,7 +135,9 @@ jobs:
         env:
           PACKAGE: ${{ matrix.package }}
       # package_ci.py test writes the package's line coverage to .build/coverage/<key>.json.
+      # Advisory: an artifact upload problem (for example a full quota) must not fail a passing test job.
       - name: Upload coverage
+        continue-on-error: true
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: coverage-${{ matrix.package }}

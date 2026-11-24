@@ -119,19 +119,36 @@ def coverage(results, package, root=ROOT):
 
 
 def report_coverage(key, lines, root=ROOT, env=os.environ):
-    """Prints the package's line coverage, adds it to the job summary in CI, and writes COVERAGE_DIR/<key>.json."""
+    """Prints the package's line coverage, adds it to the job summary in CI, and writes COVERAGE_DIR/<key>.json.
+
+    Coverage is informational: a write error prints a warning and never changes the test result.
+    """
     if not lines:
         print(f"test ({key}) coverage: no data for the package target", flush=True)
         return
     covered, executable = lines
     text = f"test ({key}) line coverage: {100 * covered / executable:.2f}% ({covered}/{executable})"
     print(text, flush=True)
-    if env.get("GITHUB_STEP_SUMMARY"):
-        with open(env["GITHUB_STEP_SUMMARY"], "a") as summary:
-            summary.write(text + "\n")
-    path = root / COVERAGE_DIR / f"{key}.json"
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps({"package": key, "coveredLines": covered, "executableLines": executable}) + "\n")
+    try:
+        if env.get("GITHUB_STEP_SUMMARY"):
+            with open(env["GITHUB_STEP_SUMMARY"], "a") as summary:
+                summary.write(text + "\n")
+    except OSError as error:
+        print(f"test ({key}) coverage: could not write the job summary: {error}", flush=True)
+    try:
+        path = root / COVERAGE_DIR / f"{key}.json"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps({"package": key, "coveredLines": covered, "executableLines": executable}) + "\n")
+    except OSError as error:
+        print(f"test ({key}) coverage: could not write {COVERAGE_DIR}/{key}.json: {error}", flush=True)
+
+
+def clear_coverage(key, root=ROOT):
+    """Removes the package's report from an earlier run, so a run without coverage data leaves no stale value."""
+    try:
+        (root / COVERAGE_DIR / f"{key}.json").unlink(missing_ok=True)
+    except OSError as error:
+        print(f"test ({key}) coverage: could not remove the earlier report: {error}", flush=True)
 
 
 def test(keys=None, root=ROOT):
@@ -148,6 +165,7 @@ def test(keys=None, root=ROOT):
     data = manifest(root)
     simulator = run([PICK_SIMULATOR], cwd=root)
     for key in keys or packages:
+        clear_coverage(key, root)
         with tempfile.TemporaryDirectory(prefix=f"test-{key}-") as temp:
             results = Path(temp) / "results.xcresult"
             command = test_command(data, key, packages[key], simulator, results)

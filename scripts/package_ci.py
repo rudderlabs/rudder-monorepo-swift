@@ -28,6 +28,11 @@ SCHEME = "package-ci-{}"
 DEVELOPER_DIR = "/Applications/Xcode_{}.app/Contents/Developer"
 # The oldest Xcode the monorepo supports: CI and release builds use it unless a package sets `xcode`.
 DEFAULT_XCODE = "26.2"
+# Line coverage per package from `test`, one JSON file per package (git-ignored; CI uploads the folder).
+COVERAGE_DIR = ".build/coverage"
+# `test` measures coverage only when this variable is "1". Instrumentation slows the tests, and several tests assert
+# timing, so ci.yml sets it on pushes to main and not on pull requests.
+COVERAGE_ENV = "PACKAGE_CI_COVERAGE"
 
 
 def matrix(root=ROOT):
@@ -75,7 +80,7 @@ def test_scheme(data, key, package, root=ROOT):
         path.unlink(missing_ok=True)
 
 
-def test_command(data, key, package, simulator, results):
+def test_command(data, key, package, simulator, results, coverage=False):
     targets = test_targets(data, package)
     if not targets:
         raise ValueError(f"{key}: no test target under {package['path']}/Tests or depending on {package['target']}")
@@ -83,6 +88,7 @@ def test_command(data, key, package, simulator, results):
     # Serial, like the SDK's `swift test --no-parallel` (its async tests hang in parallel); a hung test fails after 2 min.
     return ["xcodebuild", "test", "-quiet", "-collect-test-diagnostics", "never", "-parallel-testing-enabled", "NO",
             "-test-timeouts-enabled", "YES", "-default-test-execution-time-allowance", "120",
+            *(["-enableCodeCoverage", "YES"] if coverage else []),
             "-scheme", SCHEME.format(key), "-destination", f"platform=iOS Simulator,id={simulator}",
             "-resultBundlePath", str(results), *[f"-only-testing:{name}" for name in targets]]
 
@@ -97,7 +103,59 @@ def failures(results):
             for f in summary.get("testFailures", [])]
 
 
-def test(keys=None, root=ROOT):
+def coverage(results, package, root=ROOT):
+    """Covered and executable lines of the package's own sources in a result bundle; None when it has no data.
+
+    SwiftPM links the library code into the test bundle, so xccov lists it under the test target: count files by path.
+    """
+    try:
+        report = json.loads(run(["xcrun", "xccov", "view", "--report", "--json", results]))
+    except (RuntimeError, ValueError):
+        return None
+    sources = str((root / package["path"] / "Sources").resolve()) + os.sep
+    files = {f["path"]: f for t in report.get("targets", []) for f in t.get("files", [])
+             if str(Path(f.get("path", "")).resolve()).startswith(sources)}
+    executable = sum(f.get("executableLines", 0) for f in files.values())
+    if not executable:
+        print(f"coverage: no file under {package['path']}/Sources in the report", flush=True)
+        return None
+    return sum(f.get("coveredLines", 0) for f in files.values()), executable
+
+
+def report_coverage(key, lines, root=ROOT, env=os.environ):
+    """Prints the package's line coverage, adds it to the job summary in CI, and writes COVERAGE_DIR/<key>.json.
+
+    Coverage is informational: a write error prints a warning and never changes the test result.
+    """
+    if not lines:
+        print(f"test ({key}) coverage: no data for the package target", flush=True)
+        return
+    covered, executable = lines
+    text = f"test ({key}) line coverage: {100 * covered / executable:.2f}% ({covered}/{executable})"
+    print(text, flush=True)
+    try:
+        if env.get("GITHUB_STEP_SUMMARY"):
+            with open(env["GITHUB_STEP_SUMMARY"], "a") as summary:
+                summary.write(text + "\n")
+    except OSError as error:
+        print(f"test ({key}) coverage: could not write the job summary: {error}", flush=True)
+    try:
+        path = root / COVERAGE_DIR / f"{key}.json"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps({"package": key, "coveredLines": covered, "executableLines": executable}) + "\n")
+    except OSError as error:
+        print(f"test ({key}) coverage: could not write {COVERAGE_DIR}/{key}.json: {error}", flush=True)
+
+
+def clear_coverage(key, root=ROOT):
+    """Removes the package's report from an earlier run, so a run without coverage data leaves no stale value."""
+    try:
+        (root / COVERAGE_DIR / f"{key}.json").unlink(missing_ok=True)
+    except OSError as error:
+        print(f"test ({key}) coverage: could not remove the earlier report: {error}", flush=True)
+
+
+def test(keys=None, root=ROOT, env=os.environ):
     """iOS Simulator tests per package (D22), the same command as CI's `test (<key>)` job."""
     packages = inventory(root)
     if not (root / "Package.swift").exists():
@@ -111,15 +169,19 @@ def test(keys=None, root=ROOT):
     data = manifest(root)
     simulator = run([PICK_SIMULATOR], cwd=root)
     for key in keys or packages:
+        clear_coverage(key, root)
         with tempfile.TemporaryDirectory(prefix=f"test-{key}-") as temp:
             results = Path(temp) / "results.xcresult"
-            command = test_command(data, key, packages[key], simulator, results)
+            measure = env.get(COVERAGE_ENV) == "1"
+            command = test_command(data, key, packages[key], simulator, results, coverage=measure)
             print(f"test ({key}): {' '.join(command)}", flush=True)
             with test_scheme(data, key, packages[key], root):
                 failed = subprocess.run(command, cwd=root).returncode
             if failed:
                 print(f"test ({key}) failures:", *[f"  {line}" for line in failures(results)], sep="\n", flush=True)
                 raise SystemExit(f"test ({key}) failed")
+            if measure:
+                report_coverage(key, coverage(results, packages[key], root), root)
         print(f"test ({key}) passed", flush=True)
 
 

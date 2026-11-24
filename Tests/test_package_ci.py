@@ -21,8 +21,8 @@ os.environ["GIT_CONFIG_NOSYSTEM"] = "1"
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 import inventory_fixture  # noqa: F401,E402  (default package list for tests)
 from common import ROOT, load, write_json
-from package_ci import (failed_needs, failures, main, manifest_problems, matrix, scope_warnings, test_command, test_scheme,
-                        test_targets, xcode_env, DEFAULT_XCODE)
+from package_ci import (clear_coverage, coverage, failed_needs, failures, main, manifest_problems, matrix, report_coverage, scope_warnings,
+                        test_command, test_scheme, test_targets, xcode_env, DEFAULT_XCODE)
 
 FIXTURE = ROOT / "Tests/Fixtures/demo"
 PICK = ROOT / "scripts/ci/pick-simulator.sh"
@@ -136,12 +136,62 @@ class TestTargetTests(unittest.TestCase):
                          ["DemoTests", "RudderIntegrationKitTests"])
         self.assertEqual(test_targets(DEMO, {"path": "Integrations/Sprig", "target": "DemoSprig"}), ["DemoTests"])
 
+    def test_coverage_counts_only_the_package_sources(self):
+        root = Path("/repo")
+        report = {"targets": [{"name": "DemoTests", "files": [
+            {"path": "/repo/Integrations/Sprig/Sources/DemoSprig/Sprig.swift", "coveredLines": 30, "executableLines": 40},
+            {"path": "/repo/Integrations/Sprig/Tests/DemoTests/SprigTests.swift", "coveredLines": 50, "executableLines": 50},
+            {"path": "/repo/Shared/Kit/Kit.swift", "coveredLines": 1, "executableLines": 100}]}]}
+        package = {"path": "Integrations/Sprig", "target": "DemoSprig"}
+        with patch("package_ci.run", return_value=json.dumps(report)):
+            self.assertEqual(coverage("r.xcresult", package, root), (30, 40))
+        with patch("package_ci.run", return_value=json.dumps({"targets": []})), patch("sys.stdout", new_callable=io.StringIO):
+            self.assertIsNone(coverage("r.xcresult", package, root))
+        with patch("package_ci.run", side_effect=RuntimeError("Command failed: xcrun ['xccov']")):
+            self.assertIsNone(coverage("r.xcresult", package, root))
+
+    def test_report_coverage_prints_summarises_and_writes_json(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root, summary = Path(temp), Path(temp) / "summary.md"
+            with patch("sys.stdout", new_callable=io.StringIO) as out:
+                report_coverage("sprig", (30, 40), root, {"GITHUB_STEP_SUMMARY": str(summary)})
+                report_coverage("braze", None, root, {})
+            self.assertIn("test (sprig) line coverage: 75.00% (30/40)", out.getvalue())
+            self.assertIn("test (braze) coverage: no data", out.getvalue())
+            self.assertEqual(summary.read_text(), "test (sprig) line coverage: 75.00% (30/40)\n")
+            self.assertEqual(json.loads((root / ".build/coverage/sprig.json").read_text()),
+                             {"package": "sprig", "coveredLines": 30, "executableLines": 40})
+            self.assertFalse((root / ".build/coverage/braze.json").exists())
+
+    def test_report_coverage_write_errors_do_not_fail(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / ".build/coverage/sprig.json").mkdir(parents=True)  # a directory where the file goes
+            with patch("sys.stdout", new_callable=io.StringIO) as out:
+                report_coverage("sprig", (30, 40), root, {"GITHUB_STEP_SUMMARY": str(root / "missing/summary.md")})
+            self.assertIn("could not write the job summary", out.getvalue())
+            self.assertIn("could not write .build/coverage/sprig.json", out.getvalue())
+
+    def test_clear_coverage_removes_the_earlier_report(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            report = root / ".build/coverage/sprig.json"
+            report.parent.mkdir(parents=True)
+            report.write_text("{}")
+            clear_coverage("sprig", root)
+            self.assertFalse(report.exists())
+            clear_coverage("sprig", root)  # no earlier report: nothing to do
+
     def test_command_uses_the_package_test_scheme_and_the_picked_simulator(self):
         command = test_command(DEMO, "sprig", {"path": "Integrations/Sprig", "target": "DemoSprig"}, "UDID-1", "/tmp/r.xcresult")
         self.assertEqual(command, ["xcodebuild", "test", "-quiet", "-collect-test-diagnostics", "never", "-parallel-testing-enabled", "NO",
                                    "-test-timeouts-enabled", "YES", "-default-test-execution-time-allowance", "120", "-scheme", "package-ci-sprig",
                                    "-destination", "platform=iOS Simulator,id=UDID-1", "-resultBundlePath", "/tmp/r.xcresult",
                                    "-only-testing:DemoTests"])
+        with_coverage = test_command(DEMO, "sprig", {"path": "Integrations/Sprig", "target": "DemoSprig"}, "UDID-1",
+                                     "/tmp/r.xcresult", coverage=True)
+        self.assertEqual(with_coverage[with_coverage.index("-enableCodeCoverage") + 1], "YES")
+        self.assertEqual(len(with_coverage), len(command) + 2)
         with self.assertRaisesRegex(ValueError, "no test target"):
             test_command(DEMO, "x", {"path": "Integrations/X", "target": "X"}, "UDID-1", "/tmp/r.xcresult")
 

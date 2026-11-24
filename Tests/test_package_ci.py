@@ -185,10 +185,13 @@ class TestTargetTests(unittest.TestCase):
     def test_command_uses_the_package_test_scheme_and_the_picked_simulator(self):
         command = test_command(DEMO, "sprig", {"path": "Integrations/Sprig", "target": "DemoSprig"}, "UDID-1", "/tmp/r.xcresult")
         self.assertEqual(command, ["xcodebuild", "test", "-quiet", "-collect-test-diagnostics", "never", "-parallel-testing-enabled", "NO",
-                                   "-test-timeouts-enabled", "YES", "-default-test-execution-time-allowance", "120", "-enableCodeCoverage", "YES",
-                                   "-scheme", "package-ci-sprig",
+                                   "-test-timeouts-enabled", "YES", "-default-test-execution-time-allowance", "120", "-scheme", "package-ci-sprig",
                                    "-destination", "platform=iOS Simulator,id=UDID-1", "-resultBundlePath", "/tmp/r.xcresult",
                                    "-only-testing:DemoTests"])
+        with_coverage = test_command(DEMO, "sprig", {"path": "Integrations/Sprig", "target": "DemoSprig"}, "UDID-1",
+                                     "/tmp/r.xcresult", coverage=True)
+        self.assertEqual(with_coverage[with_coverage.index("-enableCodeCoverage") + 1], "YES")
+        self.assertEqual(len(with_coverage), len(command) + 2)
         with self.assertRaisesRegex(ValueError, "no test target"):
             test_command(DEMO, "x", {"path": "Integrations/X", "target": "X"}, "UDID-1", "/tmp/r.xcresult")
 

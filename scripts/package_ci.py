@@ -30,6 +30,9 @@ DEVELOPER_DIR = "/Applications/Xcode_{}.app/Contents/Developer"
 DEFAULT_XCODE = "26.2"
 # Line coverage per package from `test`, one JSON file per package (git-ignored; CI uploads the folder).
 COVERAGE_DIR = ".build/coverage"
+# `test` measures coverage only when this variable is "1". Instrumentation slows the tests, and several tests assert
+# timing, so ci.yml sets it on pushes to main and not on pull requests.
+COVERAGE_ENV = "PACKAGE_CI_COVERAGE"
 
 
 def matrix(root=ROOT):
@@ -77,14 +80,15 @@ def test_scheme(data, key, package, root=ROOT):
         path.unlink(missing_ok=True)
 
 
-def test_command(data, key, package, simulator, results):
+def test_command(data, key, package, simulator, results, coverage=False):
     targets = test_targets(data, package)
     if not targets:
         raise ValueError(f"{key}: no test target under {package['path']}/Tests or depending on {package['target']}")
     # No failure diagnostics: `simctl diagnose` after a failing test can stall for many minutes.
     # Serial, like the SDK's `swift test --no-parallel` (its async tests hang in parallel); a hung test fails after 2 min.
     return ["xcodebuild", "test", "-quiet", "-collect-test-diagnostics", "never", "-parallel-testing-enabled", "NO",
-            "-test-timeouts-enabled", "YES", "-default-test-execution-time-allowance", "120", "-enableCodeCoverage", "YES",
+            "-test-timeouts-enabled", "YES", "-default-test-execution-time-allowance", "120",
+            *(["-enableCodeCoverage", "YES"] if coverage else []),
             "-scheme", SCHEME.format(key), "-destination", f"platform=iOS Simulator,id={simulator}",
             "-resultBundlePath", str(results), *[f"-only-testing:{name}" for name in targets]]
 
@@ -151,7 +155,7 @@ def clear_coverage(key, root=ROOT):
         print(f"test ({key}) coverage: could not remove the earlier report: {error}", flush=True)
 
 
-def test(keys=None, root=ROOT):
+def test(keys=None, root=ROOT, env=os.environ):
     """iOS Simulator tests per package (D22), the same command as CI's `test (<key>)` job."""
     packages = inventory(root)
     if not (root / "Package.swift").exists():
@@ -168,14 +172,16 @@ def test(keys=None, root=ROOT):
         clear_coverage(key, root)
         with tempfile.TemporaryDirectory(prefix=f"test-{key}-") as temp:
             results = Path(temp) / "results.xcresult"
-            command = test_command(data, key, packages[key], simulator, results)
+            measure = env.get(COVERAGE_ENV) == "1"
+            command = test_command(data, key, packages[key], simulator, results, coverage=measure)
             print(f"test ({key}): {' '.join(command)}", flush=True)
             with test_scheme(data, key, packages[key], root):
                 failed = subprocess.run(command, cwd=root).returncode
             if failed:
                 print(f"test ({key}) failures:", *[f"  {line}" for line in failures(results)], sep="\n", flush=True)
                 raise SystemExit(f"test ({key}) failed")
-            report_coverage(key, coverage(results, packages[key], root), root)
+            if measure:
+                report_coverage(key, coverage(results, packages[key], root), root)
         print(f"test ({key}) passed", flush=True)
 
 

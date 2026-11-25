@@ -237,11 +237,20 @@ private extension FacebookIntegration {
         }
     }
 
+    /// The dashboard sends `dpoState` and `dpoCountry` as strings, such as "1000".
+    static func dpoValue(_ value: Any?) -> Int {
+        switch value {
+        case let number as Int: return number
+        case let text as String: return Int(text) ?? 0
+        default: return 0
+        }
+    }
+
     func configureDataProcessingOptions(from destinationConfig: [String: Any], isUpdate: Bool) {
         // Extract configuration from destination config
         let limitedDataUse = destinationConfig["limitedDataUse"] as? Bool ?? false
-        let dpoState = destinationConfig["dpoState"] as? Int ?? 0
-        let dpoCountry = destinationConfig["dpoCountry"] as? Int ?? 0
+        let dpoState = Self.dpoValue(destinationConfig["dpoState"])
+        let dpoCountry = Self.dpoValue(destinationConfig["dpoCountry"])
 
         // Validate DPO state (0 or 1000 only)
         let validatedDpoState = (dpoState == 0 || dpoState == Self.californiaDpoState) ? dpoState : 0

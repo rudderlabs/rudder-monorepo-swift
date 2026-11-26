@@ -20,7 +20,7 @@ struct ObjCFacebookIntegrationTests {
     func testEmptyUpdateKeepsDataProcessingOptions() {
         let (wrapper, settings) = makeWrapper()
         var error: NSError?
-        #expect(wrapper.createWithDestinationConfig(["limitedDataUse": true, "dpoState": 1000, "dpoCountry": 1], error: &error))
+        #expect(wrapper.createWithDestinationConfig(["limitedDataUse": true, "dpoState": "1000", "dpoCountry": "1"], error: &error))
 
         #expect(wrapper.updateWithDestinationConfig([:], error: &error))
 
@@ -35,7 +35,7 @@ struct ObjCFacebookIntegrationTests {
         var error: NSError?
         #expect(wrapper.createWithDestinationConfig(["limitedDataUse": !limitedDataUse], error: &error))
 
-        #expect(wrapper.updateWithDestinationConfig(["limitedDataUse": limitedDataUse, "dpoState": 1000, "dpoCountry": 1], error: &error))
+        #expect(wrapper.updateWithDestinationConfig(["limitedDataUse": limitedDataUse, "dpoState": "1000", "dpoCountry": "1"], error: &error))
 
         #expect(error == nil)
         #expect(settings.setDataProcessingOptionsCalls.count == 2)

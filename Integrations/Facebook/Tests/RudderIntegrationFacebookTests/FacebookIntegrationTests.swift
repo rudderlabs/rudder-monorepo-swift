@@ -1,4 +1,5 @@
 import Testing
+import Foundation
 import RudderStackAnalytics
 import FacebookCore
 @testable import RudderIntegrationFacebook
@@ -11,8 +12,8 @@ struct FacebookIntegrationTests {
 
         let config: [String: Any] = [
             "limitedDataUse": false,
-            "dpoState": 0,
-            "dpoCountry": 0
+            "dpoState": "0",
+            "dpoCountry": "0"
         ]
 
         try integration.create(destinationConfig: config)
@@ -30,8 +31,8 @@ struct FacebookIntegrationTests {
 
         let config: [String: Any] = [
             "limitedDataUse": true,
-            "dpoState": 1000,
-            "dpoCountry": 1
+            "dpoState": "1000",
+            "dpoCountry": "1"
         ]
 
         try integration.create(destinationConfig: config)
@@ -48,7 +49,7 @@ struct FacebookIntegrationTests {
         let (integration, _, mockSettings) = createIntegrationWithMocks()
 
         try integration.create(destinationConfig: ["limitedDataUse": false])
-        try integration.create(destinationConfig: ["limitedDataUse": true, "dpoState": 1000, "dpoCountry": 1])
+        try integration.create(destinationConfig: ["limitedDataUse": true, "dpoState": "1000", "dpoCountry": "1"])
 
         #expect(mockSettings.setDataProcessingOptionsCalls.count == 2)
         #expect(mockSettings.setDataProcessingOptionsCalls.last?.options == ["LDU"])
@@ -61,8 +62,8 @@ struct FacebookIntegrationTests {
 
         let config: [String: Any] = [
             "limitedDataUse": true,
-            "dpoState": 500,  // Invalid value
-            "dpoCountry": 1
+            "dpoState": "500",  // Invalid value
+            "dpoCountry": "1"
         ]
 
         try integration.create(destinationConfig: config)
@@ -80,8 +81,8 @@ struct FacebookIntegrationTests {
 
         let config: [String: Any] = [
             "limitedDataUse": true,
-            "dpoState": 1000,
-            "dpoCountry": 5  // Invalid value
+            "dpoState": "1000",
+            "dpoCountry": "5"  // Invalid value
         ]
 
         try integration.create(destinationConfig: config)
@@ -91,6 +92,27 @@ struct FacebookIntegrationTests {
         #expect(call.options == ["LDU"])
         #expect(call.country == 0)  // Should be validated to 0
         #expect(call.state == 1000)
+    }
+
+    @Test("given a decoded source config with the data processing values as strings or numbers, when the integration is created and updated, then the values apply", arguments: [
+        #"{"limitedDataUse": true, "dpoState": "1000", "dpoCountry": "1"}"#,
+        #"{"limitedDataUse": true, "dpoState": 1000, "dpoCountry": 1}"#
+    ])
+    func testDataProcessingValuesAsStringsOrNumbers(json: String) throws {
+        let (integration, _, mockSettings) = createIntegrationWithMocks()
+        let config = try JSONDecoder().decode([String: AnyCodable].self, from: Data(json.utf8)).rawDictionary
+
+        try integration.create(destinationConfig: config)
+        try integration.update(destinationConfig: ["limitedDataUse": false])
+        try integration.update(destinationConfig: config)
+
+        let calls = mockSettings.setDataProcessingOptionsCalls
+        #expect(calls.count == 3)
+        for call in [calls[0], calls[2]] {
+            #expect(call.options == ["LDU"])
+            #expect(call.country == 1)
+            #expect(call.state == 1000)
+        }
     }
 
     @Test("given integration is created, when getDestinationInstance is called, then returns app events instance")
@@ -137,8 +159,8 @@ struct FacebookIntegrationTests {
 
         let updatedConfig: [String: Any] = [
             "limitedDataUse": true,
-            "dpoState": 1000,
-            "dpoCountry": 1
+            "dpoState": "1000",
+            "dpoCountry": "1"
         ]
         try integration.update(destinationConfig: updatedConfig)
 
@@ -152,7 +174,7 @@ struct FacebookIntegrationTests {
     @Test("given limited data use is on, when the destination is disabled and update gets an empty config, then the data processing options stay")
     func testUpdateWithEmptyConfigKeepsDataProcessingOptions() throws {
         let (integration, _, mockSettings) = createIntegrationWithMocks()
-        try integration.create(destinationConfig: ["limitedDataUse": true, "dpoState": 1000, "dpoCountry": 1])
+        try integration.create(destinationConfig: ["limitedDataUse": true, "dpoState": "1000", "dpoCountry": "1"])
 
         try integration.update(destinationConfig: [:])
         #expect(mockSettings.setDataProcessingOptionsCalls.count == 1)
@@ -166,10 +188,10 @@ struct FacebookIntegrationTests {
     @Test("given an empty update kept limited data use, when an explicit setting arrives, then it applies", arguments: [true, false])
     func testExplicitSettingAppliesAfterEmptyUpdate(limitedDataUse: Bool) throws {
         let (integration, _, mockSettings) = createIntegrationWithMocks()
-        try integration.create(destinationConfig: ["limitedDataUse": !limitedDataUse, "dpoState": 1000, "dpoCountry": 1])
+        try integration.create(destinationConfig: ["limitedDataUse": !limitedDataUse, "dpoState": "1000", "dpoCountry": "1"])
         try integration.update(destinationConfig: [:])
 
-        try integration.update(destinationConfig: ["limitedDataUse": limitedDataUse, "dpoState": 1000, "dpoCountry": 1])
+        try integration.update(destinationConfig: ["limitedDataUse": limitedDataUse, "dpoState": "1000", "dpoCountry": "1"])
 
         #expect(mockSettings.setDataProcessingOptionsCalls.count == 2)
         let call = mockSettings.setDataProcessingOptionsCalls[1]

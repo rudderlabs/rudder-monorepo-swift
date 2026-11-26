@@ -60,9 +60,10 @@ public class ObjCSprigIntegration: NSObject, ObjCIntegrationPlugin, ObjCStandard
     /// - If no view controller is set, the integration calls plain `[Sprig track:]` on the
     ///   caller's thread.
     /// - If a view controller is set, the integration hops to the main thread (so it is safe to
-    ///   call `track` from any thread), verifies the view controller is still presentable —
-    ///   loaded, attached to a window, and not being dismissed — and either calls
-    ///   `[Sprig trackAndPresent:from:]` or falls back to plain `[Sprig track:]` if it is not.
+    ///   call `track` from any thread), reads the view controller again, and verifies it is still
+    ///   presentable — loaded, attached to a window that is not hidden, in a scene in the
+    ///   foreground, and not being dismissed — and either calls `[Sprig trackAndPresent:from:]`
+    ///   or falls back to plain `[Sprig track:]` if it is not.
     ///   The event is still delivered.
     ///
     /// - Parameter viewController: The view controller to present surveys from, or `nil` to clear.

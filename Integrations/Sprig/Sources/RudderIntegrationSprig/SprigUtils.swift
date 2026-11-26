@@ -66,8 +66,10 @@ enum SprigUtils {
     }
 
     static func isPresentable(_ viewController: UIViewController) -> Bool {
-        return viewController.isViewLoaded
-            && viewController.view.window != nil
-            && !viewController.isBeingDismissed
+        guard viewController.isViewLoaded, !viewController.isBeingDismissed,
+              let window = viewController.view.window, !window.isHidden else { return false }
+        // A window keeps its view controller while its scene is in the background. An inactive scene is still on screen.
+        guard let scene = window.windowScene else { return true }
+        return scene.activationState == .foregroundActive || scene.activationState == .foregroundInactive
     }
 }

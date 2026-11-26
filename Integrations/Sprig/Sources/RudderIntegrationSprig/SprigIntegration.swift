@@ -11,7 +11,13 @@ public class SprigIntegration: IntegrationPlugin, StandardIntegration {
 
     final var sprigAdapter: SprigAdapter
     private let appSprigInstance: Any?
-    private weak var viewController: UIViewController?
+    // The SDK calls `track` off the main thread, and the app sets the view controller on the main thread.
+    private let viewControllerLock = NSLock()
+    private weak var _viewController: UIViewController?
+    private var viewController: UIViewController? {
+        get { viewControllerLock.lock(); defer { viewControllerLock.unlock() }; return _viewController }
+        set { viewControllerLock.lock(); defer { viewControllerLock.unlock() }; _viewController = newValue }
+    }
     private var loggingListenerRegistered = false
 
     init(sprigAdapter: SprigAdapter, appSprigInstance: Any? = nil) {
@@ -49,10 +55,11 @@ public class SprigIntegration: IntegrationPlugin, StandardIntegration {
     /// - If no view controller is set, the integration calls plain `Sprig.track(...)` on the
     ///   caller's thread.
     /// - If a view controller is set, the integration hops to the main thread (so it is safe to
-    ///   call `track` from any thread), verifies the view controller is still presentable —
-    ///   loaded, attached to a window, and not being dismissed — and either calls
-    ///   `Sprig.trackAndPresent(...)` or falls back to plain `Sprig.track(...)` if it is not.
-    ///   No exception is thrown; the event is still delivered.
+    ///   call `track` from any thread), reads the view controller again, and verifies it is still
+    ///   presentable — loaded, attached to a window that is not hidden, in a scene in the
+    ///   foreground, and not being dismissed. It then either calls `Sprig.trackAndPresent(...)` or
+    ///   falls back to plain `Sprig.track(...)`. No exception is thrown; the event is still delivered.
+    ///   A window with no scene skips the foreground check, so clear the reference for it in the background.
     ///
     /// - Parameter viewController: The view controller to present surveys from, or `nil` to clear.
     public func setViewController(_ viewController: UIViewController?) {
@@ -117,15 +124,18 @@ public class SprigIntegration: IntegrationPlugin, StandardIntegration {
         let eventName = payload.event
         let properties = payload.properties?.dictionary?.rawDictionary
 
-        guard let viewController = self.viewController else {
+        guard let pendingViewController = self.viewController else {
             sprigAdapter.track(eventName: eventName, properties: properties)
             logger.debug(log: "SprigIntegration: track called for event '\(eventName)'")
             return
         }
 
         SprigUtils.runOnMain { [weak self] in
+            // The block holds the view controller, so its last release happens here, on the main thread, as UIKit needs.
+            _ = pendingViewController
             guard let self = self else { return }
-            if SprigUtils.isPresentable(viewController) {
+            // The app can clear the view controller, or leave the foreground, before this block runs.
+            if let viewController = self.viewController, SprigUtils.isPresentable(viewController) {
                 self.sprigAdapter.trackAndPresent(eventName: eventName, properties: properties, from: viewController)
                 self.logger.debug(log: "SprigIntegration: trackAndPresent called for event '\(eventName)'")
             } else {

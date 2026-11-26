@@ -226,6 +226,49 @@ struct SprigIntegrationTests {
         #expect(mock.trackAndPresentCalls.isEmpty)
     }
 
+    @Test("Given viewController in a hidden window, when track is called, then falls back to plain track")
+    @MainActor
+    func testTrackFallsBackWhenWindowIsHidden() {
+        let (integration, mock) = createIntegration()
+        let (viewController, window) = makePresentableViewController()
+        integration.setViewController(viewController)
+        window.isHidden = true
+
+        integration.track(payload: createTrackEvent(name: "Button Clicked"))
+
+        #expect(mock.trackCalls.count == 1)
+        #expect(mock.trackAndPresentCalls.isEmpty)
+    }
+
+    @Test("Given track is called off the main thread, when the app clears the viewController before the main thread runs, then falls back to plain track")
+    @MainActor
+    func testTrackReadsViewControllerAgainOnMainThread() async {
+        let (integration, mock) = createIntegration()
+        let (viewController, window) = makePresentableViewController()
+        integration.setViewController(viewController)
+
+        trackOnBackgroundThread(integration, name: "Button Clicked")
+        integration.setViewController(nil)
+        await withCheckedContinuation { continuation in
+            mock.onTrack = { continuation.resume() }
+            mock.onTrackAndPresent = { continuation.resume() }
+        }
+
+        #expect(mock.trackCalls.count == 1)
+        #expect(mock.trackAndPresentCalls.isEmpty)
+        _ = (integration, window)
+    }
+
+    /// Blocks the caller until `track` returns on a background thread, so the integration's main-thread block waits for the caller.
+    private func trackOnBackgroundThread(_ integration: SprigIntegration, name: String) {
+        let tracked = DispatchSemaphore(value: 0)
+        Thread {
+            integration.track(payload: TrackEvent(event: name))
+            tracked.signal()
+        }.start()
+        tracked.wait()
+    }
+
     @Test("Given viewController explicitly cleared with nil, when track is called, then falls back to plain track")
     @MainActor
     func testTrackAfterClearingViewController() {

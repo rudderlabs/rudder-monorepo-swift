@@ -147,9 +147,11 @@ sprigIntegration.setViewController(nil)
 On a `track` event:
 
 - If no view controller is set, the integration calls plain `Sprig.track(...)` on the caller's thread.
-- If a view controller is set, the integration hops to the main thread (so it is safe to call `track` from any thread), verifies the view controller is still presentable — loaded, attached to a window, and not being dismissed — and either calls `Sprig.trackAndPresent(...)` or falls back to plain `Sprig.track(...)` if it is not. The event is still delivered to Sprig.
+- If a view controller is set, the integration hops to the main thread (so it is safe to call `track` from any thread), reads the view controller again, and verifies it is still presentable — loaded, attached to a window that is not hidden, in a scene in the foreground (active, or inactive while it is on screen), and not being dismissed — and either calls `Sprig.trackAndPresent(...)` or falls back to plain `Sprig.track(...)` if it is not. The event is still delivered to Sprig.
 
-This means you do not need to worry about clearing the reference before tearing down a view controller — the worst case is that one in-flight `track` event quietly skips presentation.
+This means you do not need to worry about clearing the reference before tearing down a view controller, or when the app goes to the background — the worst case is that one in-flight `track` event quietly skips presentation.
+
+The foreground check needs the window's scene. UIKit gives a scene to each window that it shows, also in apps without a scene manifest. A window that has no scene, for example one that is not yet shown, skips the foreground check. If your app presents from such a window, clear the reference when the app goes to the background.
 
 #### Objective-C
 

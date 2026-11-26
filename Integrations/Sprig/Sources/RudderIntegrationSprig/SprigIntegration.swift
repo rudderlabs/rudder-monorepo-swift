@@ -59,6 +59,7 @@ public class SprigIntegration: IntegrationPlugin, StandardIntegration {
     ///   presentable — loaded, attached to a window that is not hidden, in a scene in the
     ///   foreground, and not being dismissed. It then either calls `Sprig.trackAndPresent(...)` or
     ///   falls back to plain `Sprig.track(...)`. No exception is thrown; the event is still delivered.
+    ///   A window with no scene skips the foreground check, so clear the reference for it in the background.
     ///
     /// - Parameter viewController: The view controller to present surveys from, or `nil` to clear.
     public func setViewController(_ viewController: UIViewController?) {

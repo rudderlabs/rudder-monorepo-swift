@@ -151,6 +151,8 @@ On a `track` event:
 
 This means you do not need to worry about clearing the reference before tearing down a view controller, or when the app goes to the background — the worst case is that one in-flight `track` event quietly skips presentation.
 
+The foreground check needs the window's scene. UIKit gives a scene to each window that it shows, also in apps without a scene manifest. A window that has no scene, for example one that is not yet shown, skips the foreground check. If your app presents from such a window, clear the reference when the app goes to the background.
+
 #### Objective-C
 
 The Objective-C bridge exposes the same API:

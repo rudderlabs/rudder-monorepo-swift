@@ -64,7 +64,8 @@ public class ObjCSprigIntegration: NSObject, ObjCIntegrationPlugin, ObjCStandard
     ///   presentable — loaded, attached to a window that is not hidden, in a scene in the
     ///   foreground, and not being dismissed — and either calls `[Sprig trackAndPresent:from:]`
     ///   or falls back to plain `[Sprig track:]` if it is not.
-    ///   The event is still delivered.
+    ///   The event is still delivered. A window with no scene skips the foreground check, so
+    ///   clear the reference for it in the background.
     ///
     /// - Parameter viewController: The view controller to present surveys from, or `nil` to clear.
     @objc

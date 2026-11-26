@@ -38,7 +38,6 @@ Choose a fresh output filename each run. Reads use the authenticated `gh` identi
 - Run the real Dependabot PR through reviewed release intent and consumer verification.
 - Run the shared external-vendor and dependency-range/refresh trials.
 - Capture existing suitable native security findings when available; otherwise retain an unverified result.
-- Verify DAMP collection permissions, source routing, and native alert identities.
 - Record pinned Actions advisory limitations and a supplementary monitoring decision.
 - Carry real Firebase indirect/binary/platform cases into production shadow validation.
 

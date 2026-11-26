@@ -1,8 +1,19 @@
 # Staged dependency-management configuration
 
-Owner: SDK team. Status: local dependency guards implemented and enforced by CI. Dependabot alerts and security updates are on through the organization's security configuration. Version updates are off: the template is not activated, pending a team decision.
+Owner: SDK team. Status: local dependency guards implemented and enforced by CI. Dependabot alerts and security updates are on through the organization's security configuration. Version updates are off: the template is not activated, by team decision. DAMP monitors this repository's Dependabot alerts (see [Monitoring](#monitoring)).
 
 This bundle holds the dependency-management requirements: exporter dependency guards, release markers, regression tests, and a read-only monitoring collector. Follow [acceptance commands and gates](ACCEPTANCE.md) before activation.
+
+## Monitoring
+
+DAMP collects this repository's Dependabot alerts every hour and publishes fix units to Linear, under one repository parent issue. It reports; it does not open pull requests or change code.
+
+Known limits:
+
+- GitHub's dependency graph reads `Package.resolved` files, not the version ranges in `Package.swift`. Alerts on the root lock are classed as library lockfile pins (C2), even when the declared range also allows the vulnerable version.
+- The example apps' and the test fixture's locks (`Examples/*`, `Tests/Fixtures/demo`) are classed as examples (C4).
+- Binary vendor SDKs get package-level advisories only.
+- CocoaPods is not covered.
 
 ## Proposed configuration
 

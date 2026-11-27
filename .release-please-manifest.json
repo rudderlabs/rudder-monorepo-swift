@@ -3,7 +3,7 @@
   "Integrations/Sprig": "2.1.0",
   "Integrations/Firebase": "3.0.0",
   "Integrations/Adjust": "2.1.0",
-  "Integrations/Facebook": "3.0.0",
+  "Integrations/Facebook": "3.0.1",
   "Integrations/AppsFlyer": "4.0.0",
   "Integrations/CleverTap": "2.1.0",
   "Integrations/Braze": "4.0.0"

@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.0.1](https://github.com/rudderlabs/rudder-monorepo-swift/compare/integration-facebook-3.0.0...integration-facebook-3.0.1) (2026-11-27)
+
+
+### Bug Fixes
+
+* **facebook:** read the data processing state and country from dashboard strings ([#93](https://github.com/rudderlabs/rudder-monorepo-swift/issues/93)) ([a693e5e](https://github.com/rudderlabs/rudder-monorepo-swift/commit/a693e5e63c5d21710af8b554c55b6d4f3b397f1d))
+
 ## [3.0.0](https://github.com/rudderlabs/rudder-monorepo-swift/compare/integration-facebook-2.0.2...integration-facebook-3.0.0) (2026-11-23)
 
 

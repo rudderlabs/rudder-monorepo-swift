@@ -42,7 +42,7 @@ jobs:
             # The checkout is the PR merged into the current base branch: its first parent is that base, so
             # changes merged there after the PR was opened are not counted as the PR's.
             python3 scripts/ci_plan.py --base HEAD^1
-          elif [ "$GITHUB_REF" = refs/heads/main ] && [ "$SONARCLOUD_ENABLED" = true ]; then
+          elif [ "$GITHUB_REF_NAME" = "$DEFAULT_BRANCH" ] && [ "$SONARCLOUD_ENABLED" = true ]; then
             python3 scripts/ci_plan.py --before "$BEFORE" --full-test-matrix
           else
             python3 scripts/ci_plan.py --before "$BEFORE"
@@ -50,6 +50,7 @@ jobs:
         env:
           EVENT: ${{ github.event_name }}
           BEFORE: ${{ github.event.before }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
           SONARCLOUD_ENABLED: ${{ vars.SONARCLOUD_ENABLED }}
 
   policy:
@@ -207,7 +208,7 @@ jobs:
     if: >-
       vars.SONARCLOUD_ENABLED == 'true' && !cancelled() &&
       (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) &&
-      (github.event_name != 'push' || github.ref != 'refs/heads/main' || needs.test.result == 'success')
+      (github.event_name != 'push' || github.ref_name != github.event.repository.default_branch || needs.test.result == 'success')
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -232,7 +233,7 @@ jobs:
           [ -n "$sources" ] || echo "::notice::No package sources yet; SonarCloud has nothing to scan"
       - name: Collect package coverage reports
         id: coverage
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: github.event_name == 'push' && github.ref_name == github.event.repository.default_branch
         env:
           GH_TOKEN: ${{ github.token }}
           PACKAGE_KEYS: ${{ needs.packages.outputs.test }}

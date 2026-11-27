@@ -13,6 +13,7 @@ import re
 import subprocess
 import sys
 import tempfile
+from xml.etree import ElementTree
 from xml.sax.saxutils import quoteattr
 
 from common import ROOT, anonymous_env, git, inventory, run, runner, url
@@ -28,7 +29,7 @@ SCHEME = "package-ci-{}"
 DEVELOPER_DIR = "/Applications/Xcode_{}.app/Contents/Developer"
 # The oldest Xcode the monorepo supports: CI and release builds use it unless a package sets `xcode`.
 DEFAULT_XCODE = "26.2"
-# Line coverage per package from `test`, one JSON file per package (git-ignored; CI uploads the folder).
+# Line coverage summaries and SonarCloud XML reports from `test` (CI uploads the folder).
 COVERAGE_DIR = ".build/coverage"
 # `test` measures coverage only when this variable is "1". Instrumentation slows the tests, and several tests assert
 # timing, so ci.yml sets it on pushes to main and not on pull requests.
@@ -147,13 +148,38 @@ def report_coverage(key, lines, root=ROOT, env=os.environ):
         print(f"test ({key}) coverage: could not write {COVERAGE_DIR}/{key}.json: {error}", flush=True)
 
 
-def clear_coverage(key, root=ROOT):
-    """Removes the package's report from an earlier run, so a run without coverage data leaves no stale value."""
-    try:
-        (root / COVERAGE_DIR / f"{key}.json").unlink(missing_ok=True)
-    except OSError as error:
-        print(f"test ({key}) coverage: could not remove the earlier report: {error}", flush=True)
+def write_sonar_coverage(results, key, package, root=ROOT):
+    """Convert Xcode's line counts to SonarCloud Generic Coverage with repository-relative source paths."""
+    sources = (root / package["path"] / "Sources").resolve()
+    report = ElementTree.Element("coverage", version="1")
+    current_file = None
+    for line in run(["xcrun", "xccov", "view", "--archive", results], cwd=root).splitlines():
+        if line.startswith("/") and line.endswith(":"):
+            source = Path(line[:-1]).resolve()
+            current_file = None
+            if source.is_relative_to(sources) and source.suffix == ".swift":
+                current_file = ElementTree.SubElement(report, "file", path=source.relative_to(root.resolve()).as_posix())
+        elif current_file is not None:
+            match = re.match(r"\s*(\d+):\s+(\d+)(?:\s|$)", line)
+            if match:
+                number, hits = match.groups()
+                ElementTree.SubElement(current_file, "lineToCover", lineNumber=number,
+                                       covered="true" if int(hits) else "false")
 
+    if report.find(".//lineToCover") is None:
+        raise ValueError("Xcode archive has no executable lines for the package")
+    path = root / COVERAGE_DIR / f"{key}.xml"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    ElementTree.ElementTree(report).write(path, encoding="utf-8", xml_declaration=True)
+
+
+def clear_coverage(key, root=ROOT):
+    """Remove earlier reports so a test run without coverage cannot leave stale data."""
+    for extension in ("json", "xml"):
+        try:
+            (root / COVERAGE_DIR / f"{key}.{extension}").unlink(missing_ok=True)
+        except OSError as error:
+            print(f"test ({key}) coverage: could not remove the earlier report: {error}", flush=True)
 
 def test(keys=None, root=ROOT, env=os.environ):
     """iOS Simulator tests per package (D22), the same command as CI's `test (<key>)` job."""
@@ -182,6 +208,10 @@ def test(keys=None, root=ROOT, env=os.environ):
                 raise SystemExit(f"test ({key}) failed")
             if measure:
                 report_coverage(key, coverage(results, packages[key], root), root)
+                try:
+                    write_sonar_coverage(results, key, packages[key], root)
+                except (RuntimeError, ValueError, OSError) as error:
+                    print(f"test ({key}) coverage: could not write SonarCloud XML: {error}", flush=True)
         print(f"test ({key}) passed", flush=True)
 
 

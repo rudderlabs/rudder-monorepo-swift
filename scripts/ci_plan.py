@@ -123,6 +123,8 @@ def main(argv=None):
     group.add_argument("--all", action="store_true", help="check everything")
     parser.add_argument("--affected", action="store_true",
                         help="with --base: print only the packages the branch changes (make affected)")
+    parser.add_argument("--full-test-matrix", action="store_true",
+                        help="run every package's tests when the plan includes any tests")
     parser.add_argument("--no-dependents", action="store_true",
                         help="with --base: test the changed packages but not their dependents (pre-push hook)")
     args = parser.parse_args(argv)
@@ -140,6 +142,9 @@ def main(argv=None):
     else:
         plan = ci_plan(changed(args.base), base_ref=base_commit(args.base),
                        with_dependents=not args.no_dependents)
+    if args.full_test_matrix and plan["test"]:
+        # A main-branch scan replaces the entire coverage measure, so it needs every package's report.
+        plan["test"] = list(inventory())
     plan["runners"] = {key: runner(package) for key, package in inventory().items()}
     if os.environ.get("GITHUB_OUTPUT"):
         with open(os.environ["GITHUB_OUTPUT"], "a") as output:

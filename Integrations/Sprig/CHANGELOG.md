@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.1.1](https://github.com/rudderlabs/rudder-monorepo-swift/compare/integration-sprig-2.1.0...integration-sprig-2.1.1) (2026-11-27)
+
+
+### Bug Fixes
+
+* **sprig:** present surveys only from a visible screen in the foreground ([#95](https://github.com/rudderlabs/rudder-monorepo-swift/issues/95)) ([5d62fab](https://github.com/rudderlabs/rudder-monorepo-swift/commit/5d62fabc74a666aeca9e63e4e52aaa6339218c0c))
+
 ## [2.1.0](https://github.com/rudderlabs/rudder-monorepo-swift/compare/integration-sprig-2.0.1...integration-sprig-2.1.0) (2026-11-23)
 
 

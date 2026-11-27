@@ -8,6 +8,10 @@ inputs:
   sources:
     description: 'Comma-separated source folders that exist, e.g. Packages,Integrations'
     required: true
+  coverage_reports:
+    description: 'Comma-separated paths to SonarCloud Generic Coverage XML files'
+    required: false
+    default: ''
 
 runs:
   using: 'composite'
@@ -26,3 +30,4 @@ runs:
       with:
         args: >
           -Dsonar.sources=${{ inputs.sources }}
+          ${{ inputs.coverage_reports != '' && format('-Dsonar.coverageReportPaths={0}', inputs.coverage_reports) || '' }}

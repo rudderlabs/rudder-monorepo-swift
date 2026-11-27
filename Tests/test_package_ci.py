@@ -9,6 +9,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from xml.etree import ElementTree
 from unittest.mock import patch
 from xml.etree import ElementTree
 
@@ -22,7 +23,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 import inventory_fixture  # noqa: F401,E402  (default package list for tests)
 from common import ROOT, load, write_json
 from package_ci import (clear_coverage, coverage, failed_needs, failures, main, manifest_problems, matrix, report_coverage, scope_warnings,
-                        test_command, test_scheme, test_targets, xcode_env, DEFAULT_XCODE)
+                        test_command, test_scheme, test_targets, write_sonar_coverage, xcode_env, DEFAULT_XCODE)
 
 FIXTURE = ROOT / "Tests/Fixtures/demo"
 PICK = ROOT / "scripts/ci/pick-simulator.sh"
@@ -98,7 +99,7 @@ class MatrixTests(unittest.TestCase):
 
     def test_sonarcloud_runs_only_when_enabled(self):
         block = WORKFLOW.split("\n  sonarcloud:\n", 1)[1].split("\n\n  ", 1)[0]
-        self.assertIn("if: vars.SONARCLOUD_ENABLED == 'true'", block)
+        self.assertIn("vars.SONARCLOUD_ENABLED == 'true'", block)
 
     def test_ci_ok_passes_skipped_and_fails_failed_or_cancelled(self):
         self.assertEqual(failed_needs({"policy": {"result": "success"}, "test": {"result": "skipped"}}), [])
@@ -149,6 +150,25 @@ class TestTargetTests(unittest.TestCase):
             self.assertIsNone(coverage("r.xcresult", package, root))
         with patch("package_ci.run", side_effect=RuntimeError("Command failed: xcrun ['xccov']")):
             self.assertIsNone(coverage("r.xcresult", package, root))
+
+    def test_sonar_coverage_uses_repository_paths_and_executable_source_lines(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp).resolve()
+            package = {"path": "Integrations/Sprig"}
+            archive = (
+                f"{root}/Integrations/Sprig/Sources/Sprig&Client.swift:\n"
+                "  1: *\n  2: 0\n  3: 4 [\n    (3, 4, 0)\n  ]\n"
+                f"{root}/Integrations/Sprig/Tests/SprigTests.swift:\n"
+                "  1: 5\n"
+            )
+            with patch("package_ci.run", return_value=archive):
+                write_sonar_coverage("r.xcresult", "sprig", package, root)
+            report = ElementTree.parse(root / ".build/coverage/sprig.xml").getroot()
+            self.assertEqual([file.attrib["path"] for file in report], ["Integrations/Sprig/Sources/Sprig&Client.swift"])
+            self.assertEqual([line.attrib for line in report[0]], [
+                {"lineNumber": "2", "covered": "false"},
+                {"lineNumber": "3", "covered": "true"},
+            ])
 
     def test_report_coverage_prints_summarises_and_writes_json(self):
         with tempfile.TemporaryDirectory() as temp:

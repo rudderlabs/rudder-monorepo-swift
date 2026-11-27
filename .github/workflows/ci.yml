@@ -42,12 +42,15 @@ jobs:
             # The checkout is the PR merged into the current base branch: its first parent is that base, so
             # changes merged there after the PR was opened are not counted as the PR's.
             python3 scripts/ci_plan.py --base HEAD^1
+          elif [ "$GITHUB_REF" = refs/heads/main ] && [ "$SONARCLOUD_ENABLED" = true ]; then
+            python3 scripts/ci_plan.py --before "$BEFORE" --full-test-matrix
           else
             python3 scripts/ci_plan.py --before "$BEFORE"
           fi
         env:
           EVENT: ${{ github.event_name }}
           BEFORE: ${{ github.event.before }}
+          SONARCLOUD_ENABLED: ${{ vars.SONARCLOUD_ENABLED }}
 
   policy:
     # macOS: dependency_policy.py needs `swift package dump-package`, and the RUN_SWIFT_BUILD_TESTS
@@ -136,7 +139,7 @@ jobs:
         env:
           PACKAGE: ${{ matrix.package }}
           PACKAGE_CI_COVERAGE: ${{ github.event_name == 'push' && '1' || '0' }}
-      # package_ci.py test writes the package's line coverage to .build/coverage/<key>.json.
+      # package_ci.py test writes a coverage summary and SonarCloud XML under .build/coverage/.
       # Advisory: an artifact upload problem (for example a full quota) must not fail a passing test job.
       - name: Upload coverage
         if: github.event_name == 'push'
@@ -200,8 +203,15 @@ jobs:
     # SonarCloud code quality (ported from rudder-sdk-swift pr-validation). Scans the package sources that exist;
     # with no packages yet there is nothing to scan and the job passes. Skipped until the repository variable
     # SONARCLOUD_ENABLED is `true` (set it once the SonarCloud project exists).
-    if: vars.SONARCLOUD_ENABLED == 'true'
+    needs: [packages, test]
+    if: >-
+      vars.SONARCLOUD_ENABLED == 'true' && !cancelled() &&
+      (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) &&
+      (github.event_name != 'push' || github.ref != 'refs/heads/main' || needs.test.result == 'success')
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read # download this run's coverage reports
     environment: sonarcloud
     steps:
       - name: Harden the runner (Audit all outbound calls)
@@ -220,9 +230,30 @@ jobs:
           for d in Packages Integrations; do if [ -d "$d" ]; then sources="${sources}${d},"; fi; done
           echo "list=${sources%,}" >> "$GITHUB_OUTPUT"
           [ -n "$sources" ] || echo "::notice::No package sources yet; SonarCloud has nothing to scan"
+      - name: Collect package coverage reports
+        id: coverage
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PACKAGE_KEYS: ${{ needs.packages.outputs.test }}
+        run: |
+          directory=.build/sonar-coverage
+          gh run download "$GITHUB_RUN_ID" --pattern 'coverage-*' --dir "$directory"
+          keys="$(jq -r '.[]' <<< "$PACKAGE_KEYS")"
+          reports=()
+          while IFS= read -r key; do
+            report="$(find "$directory" -name "$key.xml" -print -quit)"
+            if [[ ! -s "$report" ]]; then
+              echo "::error::Missing SonarCloud coverage report for $key."
+              exit 1
+            fi
+            reports+=("$report")
+          done <<< "$keys"
+          (IFS=,; echo "paths=${reports[*]}") >> "$GITHUB_OUTPUT"
       - name: SonarCloud analysis
         if: steps.sources.outputs.list != ''
         uses: ./.github/actions/sonarcloud-analysis
         with:
           sonar_token: ${{ secrets.SONAR_TOKEN }}
           sources: ${{ steps.sources.outputs.list }}
+          coverage_reports: ${{ steps.coverage.outputs.paths }}
